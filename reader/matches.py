@@ -215,13 +215,13 @@ def link_fixtures(matches: list[Match], fixtures: list[Fixture], club_id: int,
     """Attach each line-up to its fixture (in place).
 
     Line-ups carry no date, so pairs are scored: our goals must be >= goals scored by our players
-    (own goals by the opponent explain any surplus), equality scores higher, a neighbouring
-    opponent block whose club matches the fixture opponent scores high, recent fixtures win
-    ties. When the line-up knows its goals conceded (keepers' shots on target faced - saves), the
-    exact score (for and against) counts most, ahead of a neighbouring opponent, and a fixture
-    conceding fewer is ruled out (FM27 keeps many matches' team blocks side by side, so a
-    neighbour can belong to another match; the score can't). Assignment is greedy on the best
-    score, one fixture per line-up.
+    (own goals by the opponent explain any surplus), equality scores higher, a neighbouring opponent
+    block whose club matches the fixture opponent scores high, recent fixtures win ties. When the
+    line-up knows its goals conceded (keepers' shots on target faced - saves), the exact score (for
+    and against) counts most, ahead of a neighbouring opponent (FM27 keeps many matches' team blocks
+    side by side, so a neighbour can belong to another match; the score can't). A fixture where we
+    conceded more than the keepers faced still counts, but less (own goals); one where we conceded
+    fewer is ruled out. Assignment is greedy on the best score, one fixture per line-up.
 
     Old line-ups (e.g. last season's) can linger in memory and happen to fit on goals. When
     `current_uids` is given, a link without opponent confirmation is only accepted if most of the
@@ -247,8 +247,8 @@ def link_fixtures(matches: list[Match], fixtures: list[Fixture], club_id: int,
                 score = (100 if opp_ok else 0) + (10 if gf == g else 0) - recency
             elif conceded == ga:                         # the exact score outranks a neighbour, which may be another match's
                 score = 100 + (100 if gf == g else 0) + (60 if opp_ok else 0) - recency
-            elif conceded < ga and opp_ok:               # fewer only via own goals, and then the opponent must agree
-                score = 60 + (10 if gf == g else 0) - recency
+            elif conceded < ga:                          # fewer: own goals and the like (~1 match in 8), so weaker
+                score = (60 if opp_ok else 20) + (10 if gf == g else 0) - recency
             else:
                 continue
             pairs.append((score, id(m), m, f, opp_ok))

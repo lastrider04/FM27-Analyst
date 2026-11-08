@@ -38,14 +38,22 @@ def test_same_score_twice_is_told_apart_by_the_opponent():
     assert leicester.opponent.club_id == LEI and leicester.link_confidence == "high"
 
 
-def test_conceding_fewer_is_ruled_out_unless_an_own_goal_and_the_opponent_agree():
+def test_keepers_conceding_less_than_the_score_still_links_but_weaker():
+    # an own goal isn't a shot on target faced, so the keepers can account for fewer goals than the score
     m = lineup(1, 0, key="x")
-    fx = [fixture(17, LEI, US, 2, 1)]                              # we conceded 2 there; the keepers say 0
+    fx = [fixture(17, LEI, US, 1, 1)]
     link_fixtures([m], fx, US, TODAY)
+    assert m.fixture is fx[0] and m.link_confidence == "goals"
+    exact = lineup(1, 0, key="y")                                  # ...but an exact score elsewhere wins
+    fx2 = [fixture(17, LEI, US, 1, 1), fixture(4, US, BOU, 1, 0)]
+    link_fixtures([exact], fx2, US, TODAY)
+    assert exact.fixture is fx2[1]
+
+
+def test_conceding_more_than_the_score_is_ruled_out():
+    m = lineup(1, 2, key="z")                                      # the keepers let in 2; the fixture says 0
+    link_fixtures([m], [fixture(4, US, BOU, 1, 0)], US, TODAY)
     assert m.fixture is None
-    m2 = lineup(1, 1, neighbours=[LEI], key="y")                  # 1 faced on target + 1 own goal, opponent agrees
-    link_fixtures([m2], fx, US, TODAY)
-    assert m2.fixture is fx[0]
 
 
 def test_without_keeper_data_the_neighbouring_opponent_still_decides():
