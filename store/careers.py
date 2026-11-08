@@ -204,7 +204,8 @@ def resolve(uids: set[int], club_id: int, club: str | None, game_date: str | Non
     return int(cid), True
 
 
-def record_capture(cid: int, uids: set[int], club_id: int, club: str | None, game_date: str | None) -> str | None:
+def record_capture(cid: int, uids: set[int], club_id: int, club: str | None, game_date: str | None,
+                   colour: str | None = None) -> str | None:
     """Update a snapshot after a capture. Returns the previous last game date if the game went back in time
     (an older save file of the same career was loaded), else None."""
     with _lock:
@@ -214,6 +215,8 @@ def record_capture(cid: int, uids: set[int], club_id: int, club: str | None, gam
         c.update(fingerprint=sorted(uids), club_id=club_id, club=club or c.get("club"),
                  last_game_date=game_date or c.get("last_game_date"),
                  first_game_date=c.get("first_game_date") or game_date)
+        if colour:
+            c["colour"] = colour        # the club's primary colour, for the dashboard theme
         if not c.get("name"):
             c["name"] = f"{c.get('club') or 'Game'} {game_date[:4]}" if game_date else c.get("club")
         if rewound:
@@ -244,7 +247,7 @@ def listing() -> dict:
     reg = registry()
     return {"active": int(reg["active"]),
             "careers": [{"id": int(k), "label": label(k, c), "name": c.get("name"), "club": c.get("club"),
-                         "club_id": c.get("club_id"), "first_game_date": c.get("first_game_date"),
+                         "club_id": c.get("club_id"), "colour": c.get("colour"), "first_game_date": c.get("first_game_date"),
                          "last_game_date": c.get("last_game_date"), "rewound": c.get("rewound"),
                          "captures": _captures(c), "db": c["db"]}
                         for k, c in sorted(reg["careers"].items(), key=lambda kv: int(kv[0]))]}

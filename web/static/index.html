@@ -11,13 +11,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="FM27">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
   <header>
-    <div class="brand"><span class="dot"></span> FM27 Analyst
+    <div class="brand"><span class="badge" id="clubBadge">FM</span><span class="brandtext">FM27 Analyst</span>
       <a id="snapChip" class="snapchip hidden" href="#settings"></a></div>
     <nav id="nav">
       <a href="#overview">Overview</a>
@@ -36,6 +37,13 @@
       <button id="captureBtn">Capture</button>
     </div>
   </header>
+  <div class="subbar" id="subbar">
+    <span class="ctx" id="ctxClub">FM27 Analyst</span>
+    <span class="hide-sm" id="ctxSave"></span>
+    <span class="grow"></span>
+    <span class="next" id="ctxNext"></span>
+    <span class="datebox hide-sm" id="ctxDate"></span>
+  </div>
   <div id="healthBanner" class="healthbanner hidden"></div>
   <main id="view"></main>
   <div id="toast" class="toast hidden"></div>

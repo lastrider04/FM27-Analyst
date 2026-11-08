@@ -13,6 +13,7 @@ From that history you get a dashboard, a recommended XI for the next match, and 
 
 - 🔄 **Automatic.** It captures by itself after each of your matches. You never type anything in.
 - 🔒 **Read-only.** It only *reads* the game's memory, and never changes the game, your save or FM27's files.
+- 🎨 **Your club's colours.** The dashboard takes its colours from your club in the game, in dark or light mode.
 - 💻 **Local.** Everything stays on your PC. Nothing leaves it unless you set up the AI coach, and then only your squad summary goes to the provider you choose.
 
 > **Beta.** FM27 is new and will be patched; FM27 Analyst is tested on one long career. Expect the odd rough edge, and please [report anything that looks wrong](https://github.com/lastrider04/FM27-Analyst/issues).
@@ -32,7 +33,7 @@ The full walkthrough is in [Installation](docs/guide/installation.md) and [Getti
 | | Page | What's in it |
 |---|---|---|
 | 1 | **[Installation](docs/guide/installation.md)** | Requirements, installing Python, `install.bat`, command-line install, updating, uninstalling |
-| 2 | **[Getting started](docs/guide/getting-started.md)** | First start, choosing your club, captures and auto-capture, the top bar, running in the background |
+| 2 | **[Getting started](docs/guide/getting-started.md)** | First start, choosing your club, captures and auto-capture, the top bar, appearance (club colours, dark and light), running in the background |
 | 3 | **[Using the dashboard](docs/guide/dashboard.md)** | Overview and next-match picks, Players, player pages, Compare, Development, Per 90, Fixtures and match reports |
 | 4 | **[AI coach](docs/guide/ai-coach.md)** | Asking questions, and setting up the ChatGPT plan, OpenAI, OpenRouter, Ollama or LM Studio; coach instructions; privacy |
 | 5 | **[Phone app](docs/guide/phone.md)** | How it works, choosing a connection method, installing it on your phone, what a phone can do |

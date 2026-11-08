@@ -247,3 +247,11 @@ def test_listener_starts_and_stops(tmp_path, monkeypatch):
     finally:
         srv.apply({"enabled": False})
     assert not srv.state()["running"]
+
+
+def test_a_refused_browser_gets_a_page_not_json(env):
+    desk, phone = env
+    desk.put("/api/remote", json={"proxy_ip": "10.0.0.5"})
+    r = phone.get("/")
+    assert r.status_code == 403 and r.headers["content-type"].startswith("text/html") and "10.0.0.5" in r.text
+    assert phone.get("/api/overview").json() == {"detail": "Not allowed from this address."}

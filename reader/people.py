@@ -147,6 +147,9 @@ def read_injuries(mem: Memory, ref: int, spec: dict | None) -> list[dict]:
     return out
 
 
+TEAM_OBJECTS: dict[tuple[int, int], int] = {}     # (game pid, club id) -> the club's TEAM object (see clubs.py)
+
+
 def read_club_players(proc: GameProcess, club_id: int, profile: dict | None = None) -> list[Player]:
     """Players contracted to `club_id` (incl. loaned out) or currently at it (incl. loaned in)."""
     profile = profile or load_profile(proc.build_id())
@@ -171,9 +174,11 @@ def read_club_players(proc: GameProcess, club_id: int, profile: dict | None = No
     persons = enumerate_persons(proc, profile)
     family = None  # the viewing club's family pointer, found from any player at the club itself
     for ref in persons:
-        cid, fam = club_of(mem.ptr(ref + pf["club_ptr"]["off"]))
+        team = mem.ptr(ref + pf["club_ptr"]["off"])
+        cid, fam = club_of(team)
         if cid == club_id:
             family = fam
+            TEAM_OBJECTS[(proc.pid, club_id)] = team
             break
 
     players: dict[int, Player] = {}

@@ -39,7 +39,26 @@ const money = (v) => (v == null ? "–" : "£" + (v >= 1e6 ? (v / 1e6).toFixed(1
 const shown = (raw) => Math.round(raw / 5);
 const label = (k) => k.replace(/_/g, " ");
 const charts = [];
-const GRID = { color: "#2a3340" }, TICK = { color: "#8b98a8" };
+const GRID = { color: "#262a37" }, TICK = { color: "#8d96a8" };
+// chart colours from the active theme (dark / light, club colour); refreshed when the theme changes
+const CT = { text: "#eef1f6", muted: "#8d96a8", line: "#262a37", panel: "#14161e", accent: "#c8102e", blue: "#5aa9ff" };
+function readChartTheme() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  Object.assign(CT, { text: v("--text", CT.text), muted: v("--muted", CT.muted), line: v("--line", CT.line),
+    panel: v("--panel", CT.panel), accent: v("--accent", CT.accent), blue: v("--blue", CT.blue) });
+  GRID.color = CT.line;
+  TICK.color = CT.muted;
+  // compare colours: the club colour, and a second one that stands apart from it
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(CT.accent.slice(i, i + 2), 16));
+  const bluish = b > r && b >= g;
+  COLORS[0] = CT.accent;
+  COLORS[1] = bluish ? "#f0883e" : CT.blue;
+  if (window.Chart) {
+    Chart.defaults.color = CT.text;
+    Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: CT.panel, borderColor: CT.line, titleColor: CT.text, bodyColor: CT.text });
+  }
+}
 
 // ---- charts: one styling pass per size, so text sizes form a clear hierarchy
 // (axis titles/legend > axis labels > value labels) and value labels never overlap
@@ -51,11 +70,11 @@ const CHART_SIZES = {
 // enlarged view: text size follows the panel's real width, so small windows don't get oversized labels
 const zoomSize = (w) => (w < 560 ? "small" : w < 900 ? "medium" : "large");
 if (window.Chart) {
-  Chart.defaults.color = "#c9d4e0";
+  Chart.defaults.color = CT.text;
   Chart.defaults.font.family = 'system-ui, "Segoe UI", sans-serif';
   Object.assign(Chart.defaults.plugins.tooltip, {
     padding: 10, titleFont: { size: 13, weight: "600" }, bodyFont: { size: 13 }, boxPadding: 4,
-    backgroundColor: "rgba(13,17,23,.95)", borderColor: "#2a3340", borderWidth: 1 });
+    backgroundColor: CT.panel, borderColor: CT.line, borderWidth: 1 });
   if (window.ChartDataLabels) Chart.register(ChartDataLabels);
 }
 const fmtVal = (v) => (v == null ? "" : typeof v === "number" ? (Number.isInteger(v) ? v : v.toFixed(2)) : v);
@@ -67,13 +86,13 @@ function styleChart(cfg, size) {
   o.layout = { padding: S.pad };
   o.interaction = type === "radar" ? { mode: "nearest", intersect: false } : { mode: "index", intersect: false };
   o.plugins = o.plugins || {};
-  o.plugins.legend = { ...(o.plugins.legend || {}), labels: { color: "#e6edf3", boxWidth: 14, font: { size: S.legend } } };
+  o.plugins.legend = { ...(o.plugins.legend || {}), labels: { color: CT.text, boxWidth: 14, font: { size: S.legend } } };
   o.plugins.datalabels = {
     display: (ctx) => (ctx.dataset.data[ctx.dataIndex] == null || ctx.dataset.borderDash ? false : "auto"),  // "auto" hides overlaps
     formatter: fmtVal,
     // attribute charts colour the number by value; the pill border says whose value it is when comparing
     color: (ctx) => (ctx.dataset.valueColors ? attrColor(ctx.dataset.data[ctx.dataIndex])
-      : multi && typeof ctx.dataset.borderColor === "string" ? ctx.dataset.borderColor : "#e6edf3"),
+      : multi && typeof ctx.dataset.borderColor === "string" ? ctx.dataset.borderColor : CT.text),
     borderColor: (ctx) => (ctx.dataset.valueColors && multi ? ctx.dataset.borderColor : null),
     borderWidth: (ctx) => (ctx.dataset.valueColors && multi ? 1.5 : 0),
     backgroundColor: "rgba(13,17,23,.82)", borderRadius: 4, padding: { top: 2, bottom: 1, left: 4, right: 4 },
@@ -87,7 +106,7 @@ function styleChart(cfg, size) {
     if (ax.pointLabels) ax.pointLabels = { ...ax.pointLabels, font: { size: S.point } };
     if (name === "x" && type === "bar" && size !== "small") {  // bar labels are hidden in the card, shown when enlarged
       ax.display = true;
-      ax.ticks = { ...ax.ticks, maxRotation: 40, minRotation: 0, autoSkip: true, color: "#8b98a8" };
+      ax.ticks = { ...ax.ticks, maxRotation: 40, minRotation: 0, autoSkip: true, color: CT.muted };
     }
   }
   cfg.data.datasets.forEach((d) => {
@@ -145,7 +164,8 @@ function chart(canvas, cfg) {
   box.addEventListener("mouseleave", () => clearTimeout(zoomTimer));
   box.addEventListener("click", () => { clearTimeout(zoomTimer); open(); });
 }
-const COLORS = ["#c8102e", "#58a6ff"];
+const COLORS = ["#c8102e", "#58a6ff"];      // set from the theme by readChartTheme()
+readChartTheme();
 
 function rating(r) {
   if (r == null) return "–";
@@ -246,6 +266,8 @@ function clickableRows(root) {
 async function refreshStatus() {
   try {
     const s = await api("/api/status");
+    applyAppearance(s.appearance);
+    fillContext(s);
     if (NEEDS_CLUB && !s.needs_club) { NEEDS_CLUB = false; route(); }
     NEEDS_CLUB = !!s.needs_club;
     if (s.remote && !REMOTE) {
@@ -613,9 +635,9 @@ async function playerPage(uid) {
   const key = RADAR_KEYS[isGK ? "gk" : "outfield"];
   chart($("#radar"), radarCfg(key, [{ label: p.name, attrs: flat }]));
   chart($("#ca"), { type: "line", data: { labels: h.map((x) => x.game_date),
-    datasets: [{ label: "CA", data: h.map((x) => x.ca), borderColor: "#58a6ff", tension: .2 },
-               { label: "PA", data: h.map((x) => x.pa), borderColor: "#8b98a8", borderDash: [4, 4], pointRadius: 0 }] },
-    options: { plugins: { legend: { labels: { color: "#e6edf3" } } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK } } } });
+    datasets: [{ label: "CA", data: h.map((x) => x.ca), borderColor: CT.accent, tension: .2 },
+               { label: "PA", data: h.map((x) => x.pa), borderColor: CT.muted, borderDash: [4, 4], pointRadius: 0 }] },
+    options: { plugins: { legend: { labels: { color: CT.text } } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK } } } });
   if ($("#ratings")) chart($("#ratings"), { type: "bar", data: { labels: d.matches.map((m) => `${m.date} ${m.opponent}`),
     datasets: [{ data: d.matches.map((m) => m.rating), backgroundColor: d.matches.map((m) => m.rating >= 7.5 ? "#3fb950" : m.rating >= 7 ? "#a3c94f" : m.rating >= 6.7 ? "#d29922" : "#f85149") }] },
     options: { plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 5, max: 10, grid: GRID, ticks: TICK } } } });
@@ -638,7 +660,7 @@ function radarCfg(keys, players) {
     const data = keys.map((k) => shown(p.attrs[k] || 0));
     return single ? {
       label: p.label || p.name || "", data,
-      backgroundColor: "rgba(139,152,168,.14)", borderColor: "#8b98a8",
+      backgroundColor: "rgba(139,152,168,.14)", borderColor: CT.muted,
       pointBackgroundColor: data.map(attrColor), pointBorderColor: data.map(attrColor),
       // each outline segment takes the colour of the average of its two ends
       segment: { borderColor: (ctx) => attrColor((ctx.p0.raw + ctx.p1.raw) / 2) },
@@ -649,8 +671,8 @@ function radarCfg(keys, players) {
     };
   });
   return { type: "radar", data: { labels: keys.map(label), datasets },
-    options: { plugins: { legend: { display: !single, labels: { color: "#e6edf3" } } },
-      scales: { r: { min: 0, max: 20, grid: GRID, angleLines: GRID, pointLabels: { color: "#e6edf3" }, ticks: { display: false } } } } };
+    options: { plugins: { legend: { display: !single, labels: { color: CT.text } } },
+      scales: { r: { min: 0, max: 20, grid: GRID, angleLines: GRID, pointLabels: { color: CT.text }, ticks: { display: false } } } } };
 }
 
 // small pitch diagram: position familiarity (bright = natural)
@@ -734,7 +756,7 @@ async function comparePage(a, b) {
     const series = (hist) => dates.map((dt) => (hist.filter((x) => x.game_date === dt).pop() || {}).ca ?? null);
     chart($("#cah"), { type: "line", data: { labels: dates, datasets: [p, q].map((x, i) => ({ label: x.name, data: series(x.ca_history),
       borderColor: COLORS[i], tension: .2, spanGaps: true })) },
-      options: { plugins: { legend: { labels: { color: "#e6edf3" } } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK } } } });
+      options: { plugins: { legend: { labels: { color: CT.text } } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK } } } });
   } else {
     view.innerHTML = html;
   }
@@ -869,8 +891,8 @@ const LLM_PRESETS = [
   { name: "LM Studio (local)", url: "http://localhost:1234/v1", model: "", note: "Start LM Studio's local server, load a model, then Test to list it. No key needed." },
 ];
 
-const SETTINGS_SECTIONS = [["capture", "Capture"], ["coach", "AI coach"], ["snapshots", "Game snapshots"], ["phone", "Phone"],
-  ["app", "App"]];
+const SETTINGS_SECTIONS = [["capture", "Capture"], ["appearance", "Appearance"], ["coach", "AI coach"],
+  ["snapshots", "Game snapshots"], ["phone", "Phone"], ["app", "App"]];
 let settingsSection = (() => { try { return localStorage.getItem("settingsSection") || "capture"; } catch { return "capture"; } })();
 
 async function settingsPage() {
@@ -993,6 +1015,8 @@ async function settingsPage() {
     <button class="secondary" id="backupNow">Back up now</button></div>
   </div>
 
+  <div ${pane("appearance")} id="appearancePane"><div class="empty">Loading…</div></div>
+
   <div ${pane("phone")} id="phonePane"><div class="empty">Loading…</div></div>
 
   <div ${pane("app")}>
@@ -1062,6 +1086,7 @@ async function settingsPage() {
     catch (err) { toast(err.message, true); }
   });
   phonePane();
+  appearancePane();
   $("#quitBtn").addEventListener("click", async () => {
     if (!confirm("Quit FM27 Analyst? The hotkey and auto-capture stop until you start it again.")) return;
     await api("/api/shutdown", { method: "POST" }).catch(() => {});
@@ -1365,6 +1390,81 @@ async function devicePage() {
     if (window.caches) for (const k of await caches.keys()) await caches.delete(k);   // drop the offline copy too
     location.href = "/login";
   });
+}
+
+// ------------------------------------------------------------------ Settings › Appearance
+const PRESETS = ["#c8102e", "#e00000", "#6cabdd", "#034694", "#ff8000", "#fdb913", "#1b458f", "#7a263a", "#00a650", "#111111"];
+async function appearancePane() {
+  const el = $("#appearancePane");
+  if (!el) return;
+  const a = await api("/api/appearance");
+  const custom = a.colour !== "club";
+  const pick = custom ? a.colour : a.accent;
+  el.innerHTML = `<div class="card wide">${h2i("Appearance", "The dashboard takes its colours from your club: the app reads the "
+    + "club's primary colour from the game at each capture. Choose your own colour instead if you prefer, and dark, light, "
+    + "or the same as Windows. It applies everywhere, including the phone app.")}
+    <form class="settings" id="appearanceForm">
+      <label>Mode</label>
+      <div class="themepick">${[["dark", "Dark"], ["light", "Light"], ["system", "Match Windows"]].map(([v, t]) =>
+        `<label class="${a.mode === v ? "on" : ""}"><input type="radio" name="mode" value="${v}" ${a.mode === v ? "checked" : ""}>${t}</label>`).join("")}</div>
+      <label>Colour</label>
+      <div class="themepick">
+        <label class="${custom ? "" : "on"}"><input type="radio" name="src" value="club" ${custom ? "" : "checked"}>
+          <span class="swatch" style="background:${esc(a.club_colour || "#c8102e")}"></span>
+          ${a.club_colour ? `Club colours <span class="muted">(${esc(a.club || "from the game")})</span>`
+            : 'Club colours <span class="muted">(after your next capture)</span>'}</label>
+        <label class="${custom ? "on" : ""}"><input type="radio" name="src" value="custom" ${custom ? "checked" : ""}>
+          Custom <input type="color" id="customColour" value="${esc(pick)}"></label>
+      </div>
+      <div class="swatches">${PRESETS.map((c) => `<button type="button" data-colour="${c}" title="${c}"
+        class="${custom && a.colour === c ? "on" : ""}" style="background:${c}"></button>`).join("")}</div>
+    </form></div>`;
+  const save = async (body) => {
+    try { applyAppearance(await api("/api/appearance", { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body) })); appearancePane(); } catch (e) { toast(e.message, true); }
+  };
+  el.querySelectorAll('input[name="mode"]').forEach((r) => r.addEventListener("change", () => save({ mode: r.value })));
+  el.querySelectorAll('input[name="src"]').forEach((r) => r.addEventListener("change", () =>
+    save({ colour: r.value === "club" ? "club" : $("#customColour").value })));
+  $("#customColour").addEventListener("change", (e) => save({ colour: e.target.value }));
+  el.querySelectorAll("[data-colour]").forEach((b) => b.addEventListener("click", () => save({ colour: b.dataset.colour })));
+}
+
+// ------------------------------------------------------------------ theme and context strip
+let themeKey = null;
+function applyAppearance(a) {
+  if (!a || !window.fmApplyTheme) return;
+  const key = `${a.mode}|${a.accent}`;
+  if (key === themeKey) return;
+  themeKey = key;
+  window.fmApplyTheme({ mode: a.mode, accent: a.accent });
+}
+window.addEventListener("fmtheme", () => {        // recolour the charts on the page
+  readChartTheme();
+  if (charts.length) route();
+});
+
+const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+function clubInitials(name) {
+  const words = String(name || "").replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean);
+  if (!words.length) return "FM";
+  return (words.length === 1 ? words[0].slice(0, 3) : words.slice(0, 3).map((w) => w[0]).join("")).toUpperCase();
+}
+function fillContext(s) {
+  $("#clubBadge").textContent = clubInitials(s.club);
+  $("#ctxClub").textContent = s.club || "FM27 Analyst";
+  $("#ctxSave").textContent = s.save ? `${s.save.name || s.save.label}` : "";
+  const n = s.next;
+  if (n) {
+    const d = new Date(`${n.date}T00:00:00`);
+    $("#ctxNext").innerHTML = `Next: <b>${esc(n.opponent)} (${n.venue})</b> · ${d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`
+      + (n.kickoff ? ` · ${esc(n.kickoff)}` : "") + (n.competition ? `<span class="hide-sm"> · ${esc(n.competition)}</span>` : "");
+  } else {
+    $("#ctxNext").textContent = "";
+  }
+  const g = s.latest && s.latest.game_date ? new Date(`${s.latest.game_date}T00:00:00`) : null;
+  $("#ctxDate").innerHTML = g ? `<span>${DAYS[g.getDay()]}</span>${g.getDate()}/${g.getMonth() + 1}/${g.getFullYear()}` : "";
+  $("#ctxDate").title = g ? "Game date of the last capture" : "";
 }
 
 // ------------------------------------------------------------------ router

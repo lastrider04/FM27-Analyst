@@ -7,6 +7,7 @@
 - [Your first capture](#your-first-capture)
 - [How capturing works](#how-capturing-works)
 - [The top bar](#the-top-bar)
+- [Appearance](#appearance)
 - [Running in the background](#running-in-the-background)
 - [Settings › Capture](#settings--capture)
 
@@ -54,18 +55,33 @@ The **Auto** switch in the top bar turns automatic capture on or off. Hover over
 - **If the game has been patched** and the reader no longer matches, the check keeps failing. Captures then pause and a banner explains why, so wrong data is never stored. See [Troubleshooting](troubleshooting.md#fm27-has-been-updated-banner).
 
 ## The top bar
-From left to right:
+The header takes your club's colours (see [Appearance](#appearance)). From left to right:
 
 | Element | Meaning |
 |---|---|
-| **FM27 Analyst · *snapshot name*** | The [game snapshot](game-snapshots.md) in use. Click it to manage snapshots. |
+| **Club badge · FM27 Analyst · *snapshot name*** | The badge shows your club's initials. The chip is the [game snapshot](game-snapshots.md) in use; click it to manage snapshots. |
 | **Page tabs** | Overview, Players, Compare, Development, Per 90, Fixtures, Settings. |
 | **● Game running** | Green when FM27 is running and can be read. |
-| **Updated *date*** | The game date of the last capture. |
 | **Auto** | Automatic capture on or off. |
 | **Capture** | Capture now. It's greyed out when the game isn't running. |
 
+The strip underneath, like FM27's second row, shows:
+- your club and game snapshot;
+- your **next fixture**, with opponent, home or away, date, kick-off and competition;
+- the **game date** of the last capture.
+
 Hover over any of them for more detail. Throughout the app, the **ⓘ** icons next to titles and fields explain what you're looking at. Short column headers (xG, KP, Sh%…) explain themselves when you hover over them.
+
+## Appearance
+**Settings › Appearance** sets how the app looks. It applies everywhere, including the [phone app](phone.md).
+
+![Appearance settings](../screenshots/15-settings-appearance.png)
+
+- **Mode:** **Dark**, **Light**, or **Match Windows**, which follows your Windows setting.
+- **Colour:**
+  - **Club colours** (the default): the app reads your club's primary colour from the game at each capture and builds the theme from it, including the header, tabs, title markers and charts. It shows the default red until your first capture.
+  - **Custom:** choose your own colour with the picker or a preset.
+- **Readability:** text on the colour switches between black and white for contrast, and very light or very dark club colours are adjusted so they stay visible in each mode.
 
 ## Running in the background
 - **Closing the window doesn't stop the app.** It keeps running in the background, so auto-capture and the hotkey keep working while you play.

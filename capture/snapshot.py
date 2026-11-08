@@ -55,6 +55,11 @@ def read_snapshot(proc: GameProcess, club_id: int,
     today = game_date(proc, profile)
     clubs = read_club_names(proc, profile)
     players = read_club_players(proc, club_id, profile)
+    from reader.clubs import read_club_colour
+    try:
+        club_colour = read_club_colour(proc, club_id, profile)
+    except Exception:            # a nice-to-have: never fail a capture over it
+        club_colour = None
     fixtures = read_fixtures(proc, club_id, profile, names=clubs)
     matches = read_matches(proc, club_id, profile)
     current = {p.unique_id for p in players if not p.loaned_out(club_id)}
@@ -114,7 +119,7 @@ def read_snapshot(proc: GameProcess, club_id: int,
         format=SNAPSHOT_FORMAT,
         other_people=other_people,
         taken_at=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        game_date=_iso(today), club_id=club_id, build_id=proc.build_id(),
+        game_date=_iso(today), club_id=club_id, club_colour=club_colour, build_id=proc.build_id(),
         clubs={str(k): v for k, v in clubs.items()
                if k in {f[s] for f in fixture_dicts + upcoming_dicts for s in ("home_id", "away_id")}
                | {p.at_club_id for p in players} | {club_id}},
@@ -267,7 +272,7 @@ def capture(club_id: int) -> CaptureResult:
         sid, new = store_snapshot(con, snap)
     finally:
         con.close()
-    rewound = careers.record_capture(save_id, uids, club_id, club, snap["game_date"])
+    rewound = careers.record_capture(save_id, uids, club_id, club, snap["game_date"], snap.get("club_colour"))
     app_config.SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
     path = app_config.SNAPSHOT_DIR / f"{sid:05d}_{snap['game_date']}.json"
     path.write_text(json.dumps(snap), encoding="utf-8")

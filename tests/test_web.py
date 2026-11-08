@@ -109,3 +109,18 @@ def test_first_run_asks_for_a_club(client, monkeypatch):
     monkeypatch.setattr(web.HEALTH, "maybe_check", lambda force=False: None)
     client.put("/api/settings", json={"club_id": 1001})
     assert client.get("/api/status").json()["needs_club"] is False
+
+
+def test_appearance_defaults_to_the_club_colour_and_validates(client, monkeypatch):
+    from store import careers
+    monkeypatch.setattr(careers, "active_info", lambda: {"colour": "#c6212f", "club": "Northbridge"})
+    a = client.get("/api/appearance").json()
+    assert a == {"mode": "dark", "colour": "club", "club_colour": "#c6212f", "club": "Northbridge", "accent": "#c6212f"}
+    assert client.get("/api/status").json()["appearance"]["accent"] == "#c6212f"
+    a = client.put("/api/appearance", json={"mode": "light", "colour": "#034694"}).json()
+    assert a["mode"] == "light" and a["accent"] == "#034694"
+    assert client.put("/api/appearance", json={"mode": "neon"}).status_code == 400
+    assert client.put("/api/appearance", json={"colour": "red"}).status_code == 400
+    assert client.put("/api/appearance", json={"colour": "club"}).json()["accent"] == "#c6212f"
+    monkeypatch.setattr(careers, "active_info", lambda: None)          # no capture yet: the default red
+    assert client.get("/api/appearance").json()["accent"] == "#c8102e"

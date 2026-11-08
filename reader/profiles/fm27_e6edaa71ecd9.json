@@ -187,6 +187,11 @@
         "type": "ptr",
         "_note": "shared by a club and its own youth/reserve teams (first team + U21 + U18 ...)"
       }
+    },
+    "colour": {
+      "ptr": "0x78",
+      "off": "0x78",
+      "_note": "TEAM +0x78 -> object, +0x78 = primary colour as B,G,R,A (A=255). Checked on 8 clubs: Liverpool c6212f, Arsenal e00000, Chelsea 2f3b8f, Everton 0030a0, Man City 9ed0f2, Man Utd e10000, Newcastle c6cacd, Wolves ff8000"
     }
   },
   "contract": {

@@ -392,13 +392,64 @@ def status(request: Request):
         snap = latest_snapshot(con, club())
         n = con.execute("SELECT count(*) FROM snapshots WHERE club_id = ?", (club(),)).fetchone()[0]
         name = con.execute("SELECT name FROM clubs WHERE club_id = ?", (club(),)).fetchone()
+        nxt = con.execute("""SELECT f.date, f.kickoff, f.home_id, h.name AS home, a.name AS away, f.competition FROM fixtures f
+                             LEFT JOIN clubs h ON h.club_id = f.home_id LEFT JOIN clubs a ON a.club_id = f.away_id
+                             WHERE f.home_goals IS NULL AND f.date >= ? AND (f.home_id = ? OR f.away_id = ?)
+                             ORDER BY f.date, f.kickoff LIMIT 1""",
+                          (snap["game_date"] if snap else "", club(), club())).fetchone() if snap else None
         return {"game_running": game, "club_id": club(), "club": name[0] if name else None,
                 "snapshots": n, "latest": plain(snap) if snap else None,
                 "hotkey": app_config.load_config()["hotkey"], "auto": AUTO.state(),
                 "save": careers.active_info(), "health": HEALTH.state(),
-                "remote": getattr(request.state, "remote_device", None) is not None, "needs_club": club() is None}
+                "remote": getattr(request.state, "remote_device", None) is not None, "needs_club": club() is None,
+                "appearance": appearance(),
+                "next": {"date": nxt["date"], "kickoff": nxt["kickoff"], "venue": "H" if nxt["home_id"] == club() else "A",
+                         "opponent": nxt["away"] if nxt["home_id"] == club() else nxt["home"],
+                         "competition": nxt["competition"]} if nxt else None}
     finally:
         con.close()
+
+
+# ---------------------------------------------------------------- appearance (theme)
+DEFAULT_ACCENT = "#c8102e"
+HEX = __import__("re").compile(r"#[0-9a-fA-F]{6}")
+
+
+def appearance() -> dict:
+    """{mode, colour setting, club colour, accent in use}: the club's colour from the game unless one is chosen."""
+    a = app_config.load_config().get("appearance", {})
+    save = careers.active_info() or {}
+    club_colour = save.get("colour")
+    colour = a.get("colour", "club")
+    accent = colour if HEX.fullmatch(str(colour)) else club_colour or DEFAULT_ACCENT
+    return {"mode": a.get("mode", "dark"), "colour": colour, "club_colour": club_colour, "club": save.get("club"),
+            "accent": accent.lower()}
+
+
+class Appearance(BaseModel):
+    mode: str | None = None
+    colour: str | None = None
+
+
+@app.get("/api/appearance")
+def appearance_get():
+    return appearance()
+
+
+@app.put("/api/appearance")
+def appearance_put(a: Appearance):
+    cfg = app_config.load_config()
+    cur = cfg.setdefault("appearance", {"mode": "dark", "colour": "club"})
+    if a.mode is not None:
+        if a.mode not in ("dark", "light", "system"):
+            raise HTTPException(400, "mode must be dark, light or system")
+        cur["mode"] = a.mode
+    if a.colour is not None:
+        if a.colour != "club" and not HEX.fullmatch(a.colour):
+            raise HTTPException(400, "colour must be 'club' or a colour like #c8102e")
+        cur["colour"] = a.colour.lower()
+    app_config.save_config(cfg)
+    return appearance()
 
 
 # ---------------------------------------------------------------- analytics

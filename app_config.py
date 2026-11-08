@@ -14,6 +14,7 @@ DEFAULTS = {
     "club_id": None,            # the club you manage: chosen on first run (Overview), or in Settings › Capture
     "hotkey": "ctrl+alt+s",     # global capture hotkey
     "auto_capture": True,       # capture by itself after each match and weekly
+    "appearance": {"mode": "dark", "colour": "club"},   # mode: dark / light / system; colour: "club" or "#rrggbb"
     "llm": {"base_url": "https://api.openai.com/v1", "api_key": "", "model": "gpt-4o-mini", "temperature": 0.4},
     # phone companion: a second, locked-down listener for a reverse proxy (see web/remote.py)
     "remote": {"enabled": False, "host": "0.0.0.0", "port": 8776, "public_url": "", "proxy_ip": "",

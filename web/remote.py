@@ -473,6 +473,19 @@ def logout(request: Request):
 
 
 # ---------------------------------------------------------------- the gate in front of the dashboard app
+async def _send_page(send, status: int, title: str, text: str):
+    """A small readable page for a browser (rather than JSON) when a person, not the app, hits a refusal."""
+    import html
+    data = f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>FM27 Analyst</title><body style="background:#0a0b10;color:#eef1f6;font:16px system-ui;display:grid;place-items:center;
+      min-height:90vh;margin:0 16px"><div style="max-width:440px;text-align:center"><h2>{html.escape(title)}</h2>
+      <p style="color:#8d96a8;line-height:1.5">{html.escape(text)}</p></div></body>""".encode()
+    await send({"type": "http.response.start", "status": status,
+                "headers": [(b"content-type", b"text/html; charset=utf-8"), (b"content-length", str(len(data)).encode()),
+                            (b"cache-control", b"no-store")]})
+    await send({"type": "http.response.body", "body": data})
+
+
 async def _send_json(send, status: int, body: dict, headers: list | None = None):
     data = json.dumps(body).encode()
     await send({"type": "http.response.start", "status": status,
@@ -510,6 +523,11 @@ class RemoteGate:
         client = (scope.get("client") or ("", 0))[0]
         proxies = {ip.strip() for ip in str(cfg.get("proxy_ip", "")).split(",") if ip.strip()}
         if proxies and client not in proxies:
+            if not scope["path"].startswith(("/api/", "/auth/")):
+                return await _send_page(send, 403, "Not allowed from this address",
+                                        f"FM27 Analyst only accepts connections from {', '.join(sorted(proxies))} (Settings › Phone › "
+                                        "Only accept connections from on your PC). Use your public address, or clear that "
+                                        "setting to allow your local network too.")
             return await _send_json(send, 403, {"detail": "Not allowed from this address."})
         path, method = scope["path"], scope["method"]
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
