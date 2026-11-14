@@ -93,7 +93,7 @@ Hover over any of them for more detail. Throughout the app, the **ⓘ** icons ne
 ## Settings › Capture
 ![Capture settings](../screenshots/11-settings-capture.png)
 
-- **Capture by myself after every match:** the same as the Auto switch. The line underneath shows what it's waiting for, and the last automatic capture.
+- **Capture automatically after every match:** the same as the Auto switch. The line underneath shows what it's waiting for, and the last automatic capture.
 - **Club ID:** the club the app reads. It normally follows the game snapshot in use, so you rarely need to change it here.
 - **Capture hotkey:** for example `ctrl+alt+s` or `ctrl+shift+f9`. It applies after restarting the app. If the hotkey doesn't work, another program may be using it.
 

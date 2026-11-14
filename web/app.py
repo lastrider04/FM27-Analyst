@@ -218,9 +218,34 @@ def _start_remote_play() -> None:
     threading.Thread(target=run, daemon=True, name="remote-play-start").start()
 
 
+@app.get("/api/crests")
+def crests_status():
+    from . import crests
+    return crests.status()
+
+
+@app.post("/api/crests/rescan")
+def crests_rescan():
+    from . import crests
+    crests.rescan()
+    return crests.status()
+
+
+@app.get("/api/crest/{club_id}")
+def crest(club_id: int):
+    """The club's crest from the logo pack installed for FM27 (web/crests.py), or 404 (the page shows initials)."""
+    from . import crests
+    p = crests.path_for(club_id)
+    if p is None:
+        raise HTTPException(404, "no crest" if crests.ready() else "still looking for crests")
+    return FileResponse(p, headers={"Cache-Control": "public, max-age=604800"})
+
+
 @app.on_event("startup")
 def start_auto_capture():
     careers.activate()          # point DB_PATH / SNAPSHOT_DIR at the active game snapshot
+    from . import crests
+    crests.warm()               # find the logo pack's crests in the background
     AUTO.enabled = bool(app_config.load_config().get("auto_capture", True))
     AUTO.start()
     HEALTH.maybe_check()
@@ -404,7 +429,7 @@ def status(request: Request):
         snap = latest_snapshot(con, club())
         n = con.execute("SELECT count(*) FROM snapshots WHERE club_id = ?", (club(),)).fetchone()[0]
         name = con.execute("SELECT name FROM clubs WHERE club_id = ?", (club(),)).fetchone()
-        nxt = con.execute("""SELECT f.date, f.kickoff, f.home_id, h.name AS home, a.name AS away, f.competition FROM fixtures f
+        nxt = con.execute("""SELECT f.date, f.kickoff, f.home_id, f.away_id, h.name AS home, a.name AS away, f.competition FROM fixtures f
                              LEFT JOIN clubs h ON h.club_id = f.home_id LEFT JOIN clubs a ON a.club_id = f.away_id
                              WHERE f.home_goals IS NULL AND f.date >= ? AND (f.home_id = ? OR f.away_id = ?)
                              ORDER BY f.date, f.kickoff LIMIT 1""",
@@ -417,6 +442,7 @@ def status(request: Request):
                 "appearance": appearance(),
                 "next": {"date": nxt["date"], "kickoff": nxt["kickoff"], "venue": "H" if nxt["home_id"] == club() else "A",
                          "opponent": nxt["away"] if nxt["home_id"] == club() else nxt["home"],
+                         "opponent_id": nxt["away_id"] if nxt["home_id"] == club() else nxt["home_id"],
                          "competition": nxt["competition"]} if nxt else None}
     finally:
         con.close()
@@ -474,7 +500,8 @@ def overview():
         snap = latest_snapshot(con, club())
         c = club()
         upcoming = [dict(r) | {"venue": "N" if r["neutral"] else "H" if r["home_id"] == c else "A",
-                               "opponent": r["away"] if r["home_id"] == c else r["home"]}
+                               "opponent": r["away"] if r["home_id"] == c else r["home"],
+                               "opponent_id": r["away_id"] if r["home_id"] == c else r["home_id"]}
                     for r in con.execute(
             """SELECT f.*, h.name AS home, a.name AS away FROM fixtures f
                LEFT JOIN clubs h ON h.club_id = f.home_id LEFT JOIN clubs a ON a.club_id = f.away_id
@@ -668,6 +695,7 @@ def fixtures(since: str | None = None):
             home = r["home_id"] == c
             gf, ga = (r["home_goals"], r["away_goals"]) if home else (r["away_goals"], r["home_goals"])
             d.update(venue="N" if r["neutral"] else "H" if home else "A", opponent=r["away"] if home else r["home"],
+                     opponent_id=r["away_id"] if home else r["home_id"],
                      result=None if gf is None else "W" if gf > ga else "L" if gf < ga else "D")
             out.append(d)
         return {"fixtures": out}

@@ -465,6 +465,19 @@ def create_app(lan: bool) -> FastAPI:
         except analyst.AnalystUnavailable as e:
             raise HTTPException(503, str(e))
 
+    @app.get("/api/crest/{club_id}")
+    async def crest(club_id: int, request: Request):
+        """A club crest for the App panel, from the analyst's logo pack. Paired phones only."""
+        from fastapi.responses import Response
+        from . import analyst
+        device, _ = auth.device_for(request.cookies, request.client.host if request.client else "", hub.lan)
+        if device is None:
+            raise HTTPException(401, "Pair this phone first.")
+        got = await asyncio.to_thread(analyst.crest, club_id)
+        if got is None:
+            raise HTTPException(404)
+        return Response(got[0], media_type=got[1], headers={"Cache-Control": "private, max-age=604800"})
+
     @app.get("/api/analyst/{part}")
     async def analyst_part(part: str, request: Request):
         """Phase 4 native screens: the squad or fixtures, from the FM27 analyst. Paired phones only; read-only."""

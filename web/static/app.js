@@ -374,7 +374,7 @@ $("#captureBtn").addEventListener("click", capture);
 // ------------------------------------------------------------------ shared: match card
 function matchCard(summary, players, nav = null) {
   const s = summary;
-  const head = `<h1>${esc(s.date)} · ${venueWord(s.venue)} ${esc(s.opponent)} ${res(s.result)} ${esc(s.score)}
+  const head = `<h1>${esc(s.date)} · ${venueWord(s.venue)} ${crest(s.opponent_id, "md")}${esc(s.opponent)} ${res(s.result)} ${esc(s.score)}
       ${s.pens ? `<span class="muted">(${esc(s.pens)} pens)</span>` : ""}</h1><div class="muted">${esc(s.competition)}</div>`;
   const navBar = nav ? `<div class="matchnav">
       ${nav.previous ? `<a class="btn secondary" href="#match/${nav.previous}">← Previous</a>` : '<span class="btn secondary disabled">← Previous</span>'}
@@ -470,11 +470,11 @@ async function overview() {
         ${kpi(`${tf.goals_for}–${tf.goals_against}`, "goals")}${kpi(tf.unbeaten_run, "unbeaten run")}</div>
       <table class="form"><tbody>${tf.results.slice().reverse().map((r) => `<tr class="clickrow" data-href="match/${r.fixture_id}"
         title="${esc(r.competition)}"><td class="l date">${r.date}</td><td class="l">${r.venue}</td>
-        <td class="l opp">${esc(r.opponent)}</td><td>${r.gf}–${r.ga}</td><td>${res(r.result)}</td>
+        <td class="l opp">${crest(r.opponent_id, "sm")}${esc(r.opponent)}</td><td>${r.gf}–${r.ga}</td><td>${res(r.result)}</td>
         <td class="l comp muted">${esc(shortComp(r.competition))}</td><td class="stats">${r.has_stats ? "📊" : ""}</td></tr>`).join("")}</tbody></table></div>`;
   html += `<div class="card"><div class="cardhead"><h2>Next fixtures</h2><a class="btn secondary" href="#fixtures">All fixtures</a></div>
       ${o.upcoming.length ? `<table class="form"><tbody>${o.upcoming.map((f) => `<tr title="${esc(f.competition)}">
-        <td class="l date">${f.date}</td><td class="l">${f.venue}</td><td class="l opp">${esc(f.opponent)}</td>
+        <td class="l date">${f.date}</td><td class="l">${f.venue}</td><td class="l opp">${crest(f.opponent_id, "sm")}${esc(f.opponent)}</td>
         <td class="ko">${esc(f.kickoff || "")}</td><td class="l comp muted">${esc(shortComp(f.competition))}</td></tr>`).join("")}</tbody></table>`
         : '<div class="empty">No upcoming fixtures captured yet - press Capture.</div>'}</div>`;
   html += `<div class="card">${h2i("Alerts", "From the latest capture: injuries, condition under 85%, sharpness under 70%, "
@@ -860,7 +860,7 @@ async function fixturesPage() {
   view.innerHTML = `${upcoming.length ? `<div class="card wide"><h2>Upcoming · ${upcoming.length}</h2><div class="scroll"><table id="up"><thead><tr>
     <th>Date</th><th>Kick-off</th><th class="l">Venue</th><th class="l">Opponent</th><th class="l">Competition</th></tr></thead><tbody>
     ${upcoming.map((f) => `<tr><td>${f.date}</td><td>${esc(f.kickoff || "")}</td><td class="l">${f.venue}</td>
-      <td class="l">${esc(f.opponent)}</td><td class="l muted">${esc(f.competition)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+      <td class="l">${crest(f.opponent_id, "sm")}${esc(f.opponent)}</td><td class="l muted">${esc(f.competition)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
   <div class="card wide">${h2i(`Results · ${d.fixtures.length}`, "Click a row to open the match. 📊 = player stats were "
     + "captured for it (FM keeps about the last 5 matches in memory, so earlier games have the score only).")}
     <div class="filters"><label><input type="checkbox" id="onlyStats"> only matches with player stats</label>
@@ -869,7 +869,7 @@ async function fixturesPage() {
     <th>Date</th><th class="l">Venue</th><th class="l">Opponent</th><th>Score</th><th>Res</th><th class="l">Competition</th>
     <th title="📊 = player stats captured for this match">Stats</th>
     </tr></thead><tbody>${d.fixtures.map((f) => `<tr class="clickrow" data-href="match/${f.id}" data-stats="${f.has_stats ? 1 : 0}" data-comp="${esc(f.competition)}">
-      <td>${f.date}</td><td class="l">${f.venue}</td><td class="l">${esc(f.opponent)}</td>
+      <td>${f.date}</td><td class="l">${f.venue}</td><td class="l">${crest(f.opponent_id, "sm")}${esc(f.opponent)}</td>
       <td>${f.home_goals ?? "–"}–${f.away_goals ?? "–"}${f.home_pens != null ? ` <span class="muted">(${f.home_pens}–${f.away_pens}p)</span>` : ""}</td>
       <td>${res(f.result)}</td><td class="l muted">${esc(f.competition)}</td><td>${f.has_stats ? "📊" : ""}</td></tr>`).join("")}
     </tbody></table></div></div>`;
@@ -907,10 +907,10 @@ async function settingsPage() {
       `<button type="button" class="tab ${k === sec ? "on" : ""}" data-secbtn="${k}">${label}</button>`).join("")}</div>
 
   <div ${pane("capture")}>
-  <div class="card wide">${h2i("Automatic capture", "While the app runs it watches the in-game clock and captures by itself "
+  <div class="card wide">${h2i("Automatic capture", "While the app runs it watches the in-game clock and captures automatically "
     + "about 2½ game hours after each of your matches kicks off (once the match is over), and once a week of game time if "
     + "there's no match. The hotkey and the Capture button still work at any time.")}
-    <label class="toggle"><input type="checkbox" id="autoOn" ${a.enabled ? "checked" : ""}> Capture by myself after every match</label>
+    <label class="toggle"><input type="checkbox" id="autoOn" ${a.enabled ? "checked" : ""}> Capture automatically after every match</label>
     <div class="muted small">${esc(a.status || "")}${a.next ? ` · next ${esc(a.next)}` : ""}${a.last_reason ? `<br>Last: ${esc(a.last_reason)} (${esc(a.last_at || "")})` : ""}</div></div>
   <div class="card wide">${h2i("Club &amp; hotkey", "The club the app reads follows the game snapshot in use, so you rarely need "
     + "to change it here. A new hotkey (e.g. ctrl+alt+s, ctrl+shift+f9) applies after restarting the app.")}<form class="settings" id="sf">
@@ -1431,7 +1431,28 @@ async function appearancePane() {
       </div>
       <div class="swatches">${PRESETS.map((c) => `<button type="button" data-colour="${c}" title="${c}"
         class="${custom && a.colour === c ? "on" : ""}" style="background:${c}"></button>`).join("")}</div>
-    </form></div>`;
+    </form></div>
+  <div class="card wide" id="crestCard">${h2i("Club crests", "FM27 doesn't come with real club logos. If you've installed a "
+    + "logo pack for FM27 (for example TCM or the FMG standard logos, in FM27's graphics folder), the app shows the same "
+    + "crests: your club at the top and opponents in fixtures. Without one, everything works the same with initials instead.")}
+    <div class="muted small">Looking for a logo pack…</div></div>`;
+  const showCrests = async () => {
+    const card = $("#crestCard div.muted");
+    if (!card) return;
+    try {
+      const c = await api("/api/crests");
+      if (c.scanning) { card.textContent = "Looking for a logo pack…"; setTimeout(showCrests, 3000); return; }
+      card.innerHTML = c.count
+        ? `<span class="up">✓</span> ${c.count.toLocaleString()} club crests found in <code>${esc(c.folder)}</code>`
+        : `No logo pack found, so clubs show initials. To see real crests, install a logo pack for FM27 into
+           <code>${esc(c.folder)}</code> (the pack's instructions say where), then press Look again.`;
+      card.insertAdjacentHTML("beforeend", ' <button type="button" class="secondary" id="crestRescan">Look again</button>');
+      $("#crestRescan").addEventListener("click", async () => {
+        await api("/api/crests/rescan", { method: "POST" }); showCrests();
+      });
+    } catch (e) { card.textContent = e.message; }
+  };
+  showCrests();
   const save = async (body) => {
     try { applyAppearance(await api("/api/appearance", { method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body) })); appearancePane(); } catch (e) { toast(e.message, true); }
@@ -1463,14 +1484,31 @@ function clubInitials(name) {
   if (!words.length) return "FM";
   return (words.length === 1 ? words[0].slice(0, 3) : words.slice(0, 3).map((w) => w[0]).join("")).toUpperCase();
 }
+// A club's crest from the logo pack installed for FM27, if any (GET /api/crest/<id> 404s otherwise: the image removes
+// itself and the initials or name stay).
+function crest(id, cls = "") {
+  return id ? `<img class="crest ${cls}" src="/api/crest/${Number(id)}" alt="" loading="lazy" onerror="this.remove()">` : "";
+}
 function fillContext(s) {
-  $("#clubBadge").textContent = clubInitials(s.club);
+  const badge = $("#clubBadge");
+  if (badge.dataset.club !== String(s.club_id)) {
+    badge.dataset.club = String(s.club_id);
+    badge.classList.remove("has-crest");
+    badge.textContent = clubInitials(s.club);
+    if (s.club_id) {
+      const img = new Image();
+      img.onload = () => { badge.textContent = ""; badge.append(img); badge.classList.add("has-crest"); };
+      img.onerror = () => { badge.dataset.club = ""; };        // try again later: the pack may still be scanning
+      img.src = `/api/crest/${Number(s.club_id)}`;
+      img.alt = "";
+    }
+  }
   $("#ctxClub").textContent = s.club || "FM27 Analyst";
   $("#ctxSave").textContent = s.save ? `${s.save.name || s.save.label}` : "";
   const n = s.next;
   if (n) {
     const d = new Date(`${n.date}T00:00:00`);
-    $("#ctxNext").innerHTML = `Next: <b>${esc(n.opponent)} (${n.venue})</b> · ${d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`
+    $("#ctxNext").innerHTML = `Next: ${crest(n.opponent_id, "sm")}<b>${esc(n.opponent)} (${n.venue})</b> · ${d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`
       + (n.kickoff ? ` · ${esc(n.kickoff)}` : "") + (n.competition ? `<span class="hide-sm"> · ${esc(n.competition)}</span>` : "");
   } else {
     $("#ctxNext").textContent = "";

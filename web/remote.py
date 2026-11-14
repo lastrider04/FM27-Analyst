@@ -54,6 +54,7 @@ ALLOW = [
     ({"GET", "HEAD"}, re.compile(r"/|/api/(status|overview|squad|players|compare|per90|form|development|fixtures"
                                  r"|capture|auto|health|chats|llm/status|chat/context|remoteplay)")),
     ({"GET", "HEAD"}, re.compile(r"/api/(match|similar|player|chats)/[^/]+")),
+    ({"GET", "HEAD"}, re.compile(r"/api/crest/\d+")),
     ({"POST"}, re.compile(r"/api/(capture|chat|remoteplay/pair/(wifi|tailscale))")),
     ({"PUT"}, re.compile(r"/api/auto")),
     ({"DELETE"}, re.compile(r"/api/chats/[^/]+")),

@@ -178,6 +178,7 @@ def match_detail(con: sqlite3.Connection, club_id: int, fixture_id: int) -> tupl
     gf, ga = (f["home_goals"], f["away_goals"]) if home else (f["away_goals"], f["home_goals"])
     lines = sorted(match_lines(con, club_id, fixture_id=fixture_id), key=lambda l: -l.rating)
     summary = dict(fixture_id=fixture_id, date=f["date"], opponent=(f["away"] if home else f["home"]) or "?",
+                   opponent_id=f["away_id"] if home else f["home_id"],
                    venue=_venue(club_id, f["home_id"], f["neutral"]),
                    result=None if gf is None else "W" if gf > ga else "L" if gf < ga else "D",
                    score=f"{gf}-{ga}", competition=f["competition"] or "",

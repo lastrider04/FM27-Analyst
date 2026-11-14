@@ -128,7 +128,7 @@ def team_form(con: sqlite3.Connection, club_id: int, window: int = 10, competiti
               until: str | None = None) -> TeamForm:
     """Last `window` played fixtures (friendlies excluded by default)."""
     rows = con.execute("""
-        SELECT f.id, f.date, f.home_id, f.home_goals, f.away_goals, f.neutral, f.competition,
+        SELECT f.id, f.date, f.home_id, f.away_id, f.home_goals, f.away_goals, f.neutral, f.competition,
                h.name AS home, a.name AS away,
                EXISTS (SELECT 1 FROM matches m WHERE m.fixture_id = f.id) AS has_stats
         FROM fixtures f LEFT JOIN clubs h ON h.club_id = f.home_id LEFT JOIN clubs a ON a.club_id = f.away_id
@@ -142,6 +142,7 @@ def team_form(con: sqlite3.Connection, club_id: int, window: int = 10, competiti
         gf, ga = (r["home_goals"], r["away_goals"]) if home else (r["away_goals"], r["home_goals"])
         out.append(dict(fixture_id=r["id"], has_stats=bool(r["has_stats"]), date=r["date"],
                         opponent=r["away"] if home else r["home"],
+                        opponent_id=r["away_id"] if home else r["home_id"],
                         venue="N" if r["neutral"] else "H" if home else "A", gf=gf, ga=ga,
                         result="W" if gf > ga else "L" if gf < ga else "D", competition=r["competition"]))
         if len(out) == window:

@@ -673,6 +673,7 @@ const ICONS = {
   scroll: '<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>',
   back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
   picks: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10l1.5 1.5 3-3M8.5 16l1.5 1.5 3-3"/>',
+  install: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>',
   analyst: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   belloff: '<path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l1.5 2H8"/><path d="M10 20a2 2 0 0 0 4 0M3 3l18 18"/>',
@@ -846,9 +847,13 @@ function renderSquad(d) {
 }
 
 // ---- Fixtures
+function crestImg(id) {           // the opponent's crest, if the analyst has a logo pack (the image removes itself if not)
+  return id ? `<img class="crest" src="/api/crest/${Number(id)}" alt="" loading="lazy" onerror="this.remove()">` : "";
+}
 function fixtureRow(f) {
-  const res = f.result ? `<span class="res ${esc(f.result)}">${esc(f.result)}</span>` : '<span class="res"></span>';
-  return `<li class="fixture">${res}<div class="what"><div class="name">${esc(f.opponent)} (${esc(f.venue)})</div>
+  const res = f.result ? `<span class="res ${esc(f.result)}">${esc(f.result)}</span>`
+    : `<span class="res soon">${crestImg(f.opponent_id)}</span>`;
+  return `<li class="fixture">${res}<div class="what"><div class="name">${f.result ? crestImg(f.opponent_id) : ""}${esc(f.opponent)} (${esc(f.venue)})</div>
     <div class="meta">${esc(fmtDate(f.date))}${f.kickoff && !f.result ? " " + esc(f.kickoff) : ""} · ${esc(f.competition)}</div></div>
     ${f.score ? `<b class="score">${esc(f.score)}</b>` : ""}</li>`;
 }
@@ -1119,12 +1124,37 @@ if (canFull) {
   fullBtn.hidden = false;
   syncFull();
   document.addEventListener("fullscreenchange", syncFull);
+  // Full screen sticks: once turned on, the first tap after opening remote play again (or after Android drops full
+  // screen, e.g. when switching apps) goes straight back to it. Browsers only allow it from a tap, not on load.
+  const FULL_KEY = "fm27remote.full";
+  const wantFull = (v) => { try { if (v === undefined) return localStorage.getItem(FULL_KEY) === "1";
+    localStorage.setItem(FULL_KEY, v ? "1" : "0"); } catch { /* storage blocked */ } return false; };
+  const goFull = () => document.documentElement.requestFullscreen({ navigationUI: "hide" });
   fullBtn.onclick = () => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else document.documentElement.requestFullscreen({ navigationUI: "hide" })
+    if (document.fullscreenElement) { wantFull(false); document.exitFullscreen().catch(() => {}); }
+    else goFull().then(() => wantFull(true))
       .catch((e) => status(`This browser won't go full screen (${e.name}). Add it to the Home Screen instead.`, true));
   };
+  document.addEventListener("pointerup", (e) => {
+    if (!document.fullscreenElement && wantFull() && !e.target.closest?.("#b-full")) goFull().catch(() => {});
+  }, true);
 }
+// Install (Android, on the https address): an installed remote play opens with no browser bar at all.
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $("b-install").hidden = false;
+  markOverflow($("bar"));
+});
+$("b-install").onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  const { outcome } = await installPrompt.userChoice.catch(() => ({}));
+  if (outcome === "accepted") { $("b-install").hidden = true; status("Installed: open FM27 Remote from your home screen"); }
+  installPrompt = null;
+};
+window.addEventListener("appinstalled", () => { $("b-install").hidden = true; });
 $("b-mode").onclick = () => setMouseMode(!mouseMode);
 $("b-keys").onclick = () => { kbd.value = ""; kbd.focus(); if (document.activeElement === kbd) setTyping(true); };
 

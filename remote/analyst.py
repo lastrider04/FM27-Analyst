@@ -102,7 +102,7 @@ def fixtures(port_: int | None = None, results: int = 10, upcoming: int = 10) ->
     """The latest results (newest first) and the next fixtures (soonest first)."""
     port_ = port_ or port()
     as_of = (fetch("/api/status", port_).get("latest") or {}).get("game_date")
-    keys = ("id", "date", "kickoff", "opponent", "venue", "competition", "result", "has_stats")
+    keys = ("id", "date", "kickoff", "opponent", "opponent_id", "venue", "competition", "result", "has_stats")
     rows = fetch("/api/fixtures", port_).get("fixtures") or []           # newest first
     played = [r for r in rows if r.get("result")]
     to_come = [r for r in rows if not r.get("result") and (not as_of or r.get("date", "") >= as_of)]
@@ -114,6 +114,15 @@ def fixtures(port_: int | None = None, results: int = 10, upcoming: int = 10) ->
 
     return {"as_of": as_of, "results": [trim(r) for r in played[:results]],
             "upcoming": [trim(r) for r in reversed(to_come[-upcoming:])]}
+
+
+def crest(club_id: int, port_: int | None = None) -> tuple[bytes, str] | None:
+    """A club's crest from the analyst (its FM27 logo pack), or None when there isn't one."""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port_ or port()}/api/crest/{int(club_id)}", timeout=5) as r:
+            return r.read(), r.headers.get("Content-Type", "image/png")
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
 
 
 def start_capture(port_: int | None = None) -> dict:
