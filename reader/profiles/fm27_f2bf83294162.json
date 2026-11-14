@@ -471,5 +471,14 @@
     "composure",
     "concentration"
   ],
+  "shortlist": {
+    "name_ptr": "0xE8",
+    "entries": "0x80",
+    "entry": {
+      "person_ptr": "0x0",
+      "added": "0x20"
+    },
+    "_note": "found by its name (see reader/shortlist.py); verified on build f2bf83294162 with a 4-player shortlist"
+  },
   "notes": "FM27 (build f2bf83294162). Class vtables found by their RTTI names; the game date by carrying FM26's code references across; club names located by scanning. Player, fixture and match-stat fields verified against the game, Genie Scout and the same career's FM26 captures."
 }

@@ -16,7 +16,7 @@ From that history you get a dashboard, a recommended XI for the next match, and 
 - 🎨 **Your club's colours.** The dashboard takes its colours from your club in the game, in dark or light mode.
 - 💻 **Local.** Everything stays on your PC. Nothing leaves it unless you set up the AI coach, and then only your squad summary goes to the provider you choose.
 
-> **New in 1.0.2 (out of beta):** play FM27 from your phone with [remote play](docs/updates.md#remote-play), the analyst and AI coach inside it, club crests and a new logo. See [what's new](docs/updates.md).
+> **New in 1.0.2 (out of beta):** play FM27 from your phone with [remote play](docs/updates.md#remote-play), follow your transfer targets with the [Shortlist](docs/updates.md#shortlist-follow-your-transfer-targets), club crests and a new logo. See [what's new](docs/updates.md).
 >
 > Unofficial fan project, not affiliated with or endorsed by Sports Interactive or SEGA. For single-player saves only.
 
@@ -34,7 +34,7 @@ The full walkthrough is in [Installation](docs/guide/installation.md) and [Getti
 |---|---|---|
 | 1 | **[Installation](docs/guide/installation.md)** | Requirements, installing Python, `install.bat`, command-line install, updating, uninstalling |
 | 2 | **[Getting started](docs/guide/getting-started.md)** | First start, choosing your club, captures and auto-capture, the top bar, appearance (club colours, dark and light), running in the background |
-| 3 | **[Using the dashboard](docs/guide/dashboard.md)** | Overview and next-match picks, Players, player pages, Compare, Development, Per 90, Fixtures and match reports |
+| 3 | **[Using the dashboard](docs/guide/dashboard.md)** | Overview and next-match picks, Players, player pages, Compare, Development, Shortlist, Per 90, Fixtures and match reports |
 | 4 | **[AI coach](docs/guide/ai-coach.md)** | Asking questions, and setting up the ChatGPT plan, OpenAI, OpenRouter, Ollama or LM Studio; coach instructions; privacy |
 | 5 | **[Phone app](docs/guide/phone.md)** | How it works, choosing a connection method, installing it on your phone, what a phone can do |
 | | ↳ [Local network (IP and port)](docs/guide/phone-local-network.md) | On home Wi-Fi only: the simplest setup. ✅ Tested. |
@@ -68,6 +68,10 @@ The full walkthrough is in [Installation](docs/guide/installation.md) and [Getti
 <tr>
 <td><a href="docs/guide/remote-play.md"><img src="docs/screenshots/27-remote-next.png" width="180" alt="Remote play, next match"> <img src="docs/screenshots/26-remote-squad.png" width="180" alt="Remote play, squad"></a><br><b>Remote play</b>: play FM27 from your phone, with the analyst and the coach over the game.</td>
 <td><a href="docs/guide/getting-started.md#appearance"><img src="docs/screenshots/02-players.png" alt="Light mode"></a><br><b>Your club's look</b>: club colours and crests, in dark or light mode.</td>
+</tr>
+<tr>
+<td><a href="docs/guide/dashboard.md#shortlist"><img src="docs/screenshots/17-shortlist.png" alt="Shortlist"></a><br><b>Shortlist</b>: follow the players on your in-game "FM Analyst" shortlist, and see who to bid for now.</td>
+<td><a href="docs/guide/dashboard.md#shortlist"><img src="docs/screenshots/18-shortlist-player.png" alt="Shortlisted player"></a><br><b>Transfer targets over time</b>: value, contract left, CA and wage, with when-to-bid signals.</td>
 </tr>
 </table>
 

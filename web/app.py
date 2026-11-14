@@ -699,6 +699,29 @@ def player(unique_id: int):
         con.close()
 
 
+@app.get("/api/shortlist")
+def shortlist_all():
+    from analytics.shortlist import shortlist
+    con = db()
+    try:
+        return plain(shortlist(con, club()))
+    finally:
+        con.close()
+
+
+@app.get("/api/shortlist/{unique_id}")
+def shortlist_one(unique_id: int):
+    from analytics.shortlist import shortlist_player
+    con = db()
+    try:
+        p = shortlist_player(con, club(), unique_id)
+        if not p:
+            raise HTTPException(404, "not on the FM Analyst shortlist")
+        return plain(p)
+    finally:
+        con.close()
+
+
 @app.get("/api/fixtures")
 def fixtures(since: str | None = None):
     con = db()

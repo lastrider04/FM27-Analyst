@@ -113,6 +113,28 @@ class Memory:
                     return out
         return out
 
+    def find_qwords(self, values, private_only: bool = True, limit: int = 100_000) -> list[tuple[int, int]]:
+        """Find 8-byte aligned values equal to any of `values` (fast for many targets). Returns (where, value)."""
+        import numpy as np
+
+        want = np.array(sorted(set(values)), dtype="<u8")
+        out: list[tuple[int, int]] = []
+        if not len(want):
+            return out
+        for base, data in self.scan_regions(private_only):
+            pad = (-base) % 8
+            arr = np.frombuffer(data, dtype="<u8", offset=pad, count=(len(data) - pad) // 8)
+            near = np.nonzero((arr >= want[0]) & (arr <= want[-1]))[0]     # cheap range filter first
+            if not len(near):
+                continue
+            vals = arr[near]
+            hit = want[np.minimum(np.searchsorted(want, vals), len(want) - 1)] == vals
+            for i in near[hit]:
+                out.append((base + pad + int(i) * 8, int(arr[i])))
+                if len(out) >= limit:
+                    return out
+        return out
+
     @staticmethod
     def region_of(regions: list[Region], address: int) -> Region | None:
         for r in regions:

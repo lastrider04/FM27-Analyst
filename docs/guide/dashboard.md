@@ -9,6 +9,7 @@ Every page reads from your captured history, so it works even when FM27 isn't ru
 - [Player page](#player-page)
 - [Compare](#compare)
 - [Development](#development)
+- [Shortlist](#shortlist)
 - [Per 90](#per-90)
 - [Fixtures and match reports](#fixtures-and-match-reports)
 - [Ratings colours](#ratings-colours)
@@ -77,6 +78,39 @@ Who's improving and who's declining:
   - **Biggest changes:** the attributes that moved most. Bold means the change shows in the game's 1–20 value; otherwise it's a smaller change underneath.
 
 Development needs at least two captures some game time apart.
+
+## Shortlist
+Follow players you might buy: how their value, contract and ability change over time, to judge whether they're a good
+buy and when to bid.
+
+**Only players on your FM27 shortlist called `FM Analyst` show up.** In the game, create a shortlist with exactly that
+name (capital F, M and A, one space) and add players to it. They appear here after the next capture. Take a player off
+it and they disappear here at the next capture, history and all. Your other shortlists are ignored. The page explains
+this the first time you open it; after that it's in the ⓘ next to the title.
+
+- **The list:** how many players, broken down by best position (for example *1 D (C), 2 AM (C)*); click a
+  position to show only those players, and again to show everyone. For each player: age, position, club (and loan),
+  CA and PA, value and its change since you started tracking, weekly wage, contract end and the time left on it.
+  Contract colours: red = under 6 months, orange = final year, yellow = under 18 months. Click a column to sort, or a
+  player to open their page.
+- **Go for them now:** the players worth a bid at the moment, with the reasons:
+  - under 6 months left on the contract (free soon, or a pre-contract);
+  - final year of the contract (the selling club risks losing them for nothing, so a bid should cost less);
+  - value down 10% or more since you started tracking;
+  - CA up 5 or more (improving fast: buy before the price follows);
+  - and, on top of one of those, better than everyone in your first team at that position, by CA.
+- **Player page:** charts of value, months left on the contract, CA/PA and wage over time, plus positions, the
+  attribute profile, every attribute, and what has changed since you started tracking.
+- **When to bid** (on the player page): plain rules, not advice from the game:
+  - under 6 months left on the contract: the player could leave for free, and clubs abroad can agree a pre-contract;
+  - final year of the contract: the selling club risks losing the player for nothing, so a bid should cost less;
+  - value down (or up) 10% or more since you started tracking;
+  - injured (the value may dip), or on loan elsewhere;
+  - better than everyone in your first team at that position, by CA;
+  - CA up 5 or more since you started tracking: improving fast, and the price will follow.
+
+The history starts at the first capture after a player joins the shortlist, and builds up with every capture after
+that. Finding the shortlist takes a few extra seconds the first time after FM27 starts.
 
 ## Per 90
 ![Per 90](../screenshots/06-per90.png)

@@ -445,3 +445,20 @@ img.crest.md { width: 1em; height: 1em; vertical-align: -0.12em; }
 .access code { overflow-wrap: anywhere; }
 table.shortcuts input, table.shortcuts select { width: 100%; min-width: 70px; }
 table.shortcuts td { vertical-align: middle; }
+
+/* shortlist */
+.c-hot { color: var(--bad); font-weight: 700; } .c-warm { color: #f0883e; font-weight: 600; } .c-soon { color: var(--ok); }
+ul.signals { list-style: none; padding: 0; margin: 0 0 10px; }
+ul.signals li { display: block; padding: 6px 0 6px 22px; position: relative; border-bottom: 1px solid var(--line); }
+ul.signals li::before { position: absolute; left: 2px; top: 6px; }
+ul.signals li.s-good::before { content: "▲"; color: var(--good); }
+ul.signals li.s-warn::before { content: "●"; color: #f0883e; }
+ul.signals li.s-info::before { content: "ⓘ"; color: var(--muted); }
+.sig { white-space: nowrap; margin-right: 8px; } .sig.good { color: var(--good); } .sig.warn { color: #f0883e; }
+.kpi .v small { font-size: 60%; color: var(--muted); }
+table.go td { vertical-align: top; } table.go .sig { white-space: normal; margin: 0 0 2px; }
+.slcount { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: -2px 0 12px; }
+.poschips { display: flex; flex-wrap: wrap; gap: 6px; }
+.poschip { font: inherit; font-size: 13px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
+           background: var(--panel2); color: var(--text); cursor: pointer; }
+.poschip:hover { border-color: var(--accent); } .poschip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

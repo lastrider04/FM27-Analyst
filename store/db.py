@@ -101,6 +101,33 @@ CREATE TABLE IF NOT EXISTS player_match_stats (
     PRIMARY KEY (fixture_id, unique_id)
 );
 
+-- the in-game shortlist called "FM Analyst": who is on it now, and their state at each capture. Players taken off
+-- the shortlist are deleted from all three tables at the next capture.
+CREATE TABLE IF NOT EXISTS shortlist (
+    unique_id INTEGER PRIMARY KEY,
+    added TEXT,                      -- in-game date the player was added to the shortlist
+    first_seen_snapshot INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS shortlist_state (
+    snapshot_id INTEGER NOT NULL,
+    unique_id INTEGER NOT NULL,
+    at_club_id INTEGER, contract_club_id INTEGER,
+    ca INTEGER, pa INTEGER, condition REAL, sharpness REAL,
+    value INTEGER, wage_per_week INTEGER, contract_start TEXT, contract_expires TEXT,
+    rep_home INTEGER, rep_current INTEGER, rep_world INTEGER, caps INTEGER, intl_goals INTEGER,
+    positions TEXT, injuries TEXT,
+    PRIMARY KEY (snapshot_id, unique_id)
+);
+
+CREATE TABLE IF NOT EXISTS shortlist_attributes (
+    snapshot_id INTEGER NOT NULL,
+    unique_id INTEGER NOT NULL,
+    attr TEXT NOT NULL,
+    raw INTEGER NOT NULL,
+    PRIMARY KEY (snapshot_id, unique_id, attr)
+);
+
 CREATE INDEX IF NOT EXISTS idx_state_player ON player_state(unique_id);
 CREATE INDEX IF NOT EXISTS idx_attr_player ON player_attributes(unique_id, attr);
 CREATE INDEX IF NOT EXISTS idx_pms_player ON player_match_stats(unique_id);

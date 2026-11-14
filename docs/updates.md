@@ -6,14 +6,15 @@
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
 
 ## 1.0.2: out of beta
-FM27 Analyst is out of beta. The big new feature is **remote play**: play FM27 from your phone, with the analyst's
-data and the AI coach a tap away. There are also club crests, a new logo, and settings that anyone can set up from
-inside the app.
+FM27 Analyst is out of beta. The big new features are **remote play**: play FM27 from your phone, with the analyst's
+data and the AI coach a tap away; and the **Shortlist**: follow your transfer targets' value, contract and development
+to know when to bid. There are also club crests, a new logo, and settings that anyone can set up from inside the app.
 
 **Updating:** quit the app, extract the new version over your existing folder (your `data\` folder is kept), and run
 `install.bat` again. For remote play, also install its extra packages once (see [Remote play](#remote-play)).
 
 - [Where it fits in your game](#where-it-fits-in-your-game)
+- [Shortlist: follow your transfer targets](#shortlist-follow-your-transfer-targets)
 - [Remote play](#remote-play)
 - [The analyst and the coach inside remote play](#the-analyst-and-the-coach-inside-remote-play)
 - [Back and Forward gestures](#back-and-forward-gestures)
@@ -32,7 +33,7 @@ The same history, in four places:
 |---|---|---|
 | **At the PC, while you play** | The dashboard on a second screen or alongside FM27: form, condition, per 90s and match reports, updated after every match. | [Dashboard](guide/dashboard.md) |
 | **On your phone, on the sofa** | The phone app: your squad, development, fixtures and the coach, while FM27 sits on the PC. | [Phone app](guide/phone.md) |
-| **Away from the PC** | Leave the PC running and plan ahead from anywhere: who's improving, who needs a rest, what's coming up. Ask the coach on the bus. | [Tailscale](guide/phone-tailscale.md) |
+| **Away from the PC** | Leave the PC running and plan ahead from anywhere: who's improving, who needs a rest, what's coming up, and which shortlisted players to bid for. Ask the coach on the bus. | [Tailscale](guide/phone-tailscale.md) |
 | **Away from the PC, and want to play** | Pick the game up on your phone with remote play, and carry on where you left off. | [Remote play](guide/remote-play.md) |
 
 <table>
@@ -42,6 +43,29 @@ The same history, in four places:
 <td width="21%"><img src="screenshots/25-phone-fixtures.png" alt="Fixtures on the phone"><br><b>Planning ahead:</b> fixtures.</td>
 </tr>
 </table>
+
+### Shortlist: follow your transfer targets
+Make a shortlist called **FM Analyst** in FM27 and add the players you're thinking of buying. The new **Shortlist**
+tab follows them from then on, at every capture:
+- **The list:** age, position, club (and loan), CA and PA, value and its change since you started tracking, wage,
+  contract end and time left, with a breakdown by position (click one to filter).
+- **Go for them now:** who to bid for at the moment, and why: final year of the contract (or under 6 months: free
+  soon, or a pre-contract), value falling, or CA rising fast before the price follows.
+- **A page for each player:** value, contract left, CA/PA and wage over time, when-to-bid signals, how they'd rank in
+  your team at their position, and every attribute with what's changed.
+
+Only that one shortlist is read; take a player off it in the game and they're gone from the app at the next capture.
+It works on the phone too. See [Shortlist](guide/dashboard.md#shortlist).
+
+<table>
+<tr>
+<td width="58%"><img src="screenshots/17-shortlist.png" alt="The Shortlist tab"><br>The list and who to go for now</td>
+<td width="21%"><img src="screenshots/29-phone-shortlist.png" alt="Shortlist on the phone"><br>On the phone</td>
+<td width="21%"><img src="screenshots/30-phone-shortlist-player.png" alt="A shortlisted player on the phone"><br>A player</td>
+</tr>
+</table>
+
+<img src="screenshots/18-shortlist-player.png" width="700" alt="A shortlisted player's value, contract and CA over time">
 
 ### Remote play
 **Play FM27 from your phone.** The phone shows a live picture of the game and turns your taps into mouse clicks and

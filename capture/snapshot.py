@@ -16,7 +16,8 @@ from dataclasses import dataclass
 import app_config
 from reader.fixtures import read_club_names, read_fixtures, read_upcoming
 from reader.matches import game_date, link_fixtures, read_matches
-from reader.people import Player, read_club_players, read_person_names
+from reader.people import Player, read_club_players, read_person_names, read_player
+from reader.shortlist import SHORTLIST_NAME, read_shortlist
 from reader.process import GameProcess
 from reader.profile import load_profile
 from store.db import COUNTERS, connect, lineup_key, stored_links, upsert_fixture
@@ -44,6 +45,44 @@ def _key_of(m) -> str:
     return lineup_key((pm.unique_id, pm.rating) for pm in m.team.lineup if pm.played and pm.unique_id is not None)
 
 
+def _player_dict(p: Player) -> dict:
+    """The fields stored for every player, at the club or on the shortlist."""
+    return dict(
+        unique_id=p.unique_id, name=p.name, first_name=p.first_name, last_name=p.last_name,
+        dob=_iso(p.dob), at_club_id=p.at_club_id, contract_club_id=p.club_id,
+        ca=p.ca, pa=p.pa, condition=p.fitness, sharpness=p.match_exercise, jadedness=p.jadedness,
+        value=p.value, wage_per_week=p.contract.get("wage_per_week"),
+        contract_start=_iso(p.contract.get("start")), contract_expires=_iso(p.contract.get("expires")),
+        rep_home=p.reputation.get("home"), rep_current=p.reputation.get("current"),
+        rep_world=p.reputation.get("world"), caps=p.caps, intl_goals=p.intl_goals,
+        attributes=p.attributes, positions=p.positions,
+        injuries=[dict(start=_iso(i["start"]), min_days=i.get("min_days"), max_days=i["max_days"]) for i in p.injuries],
+    )
+
+
+def read_shortlist_players(proc: GameProcess, profile: dict) -> dict:
+    """{"name", "found", "players": [player dict + added]} for the shortlist called SHORTLIST_NAME."""
+    from reader.memory import Memory
+    entries = read_shortlist(proc, profile)
+    if entries is None:
+        return dict(name=SHORTLIST_NAME, found=False, players=[])
+    mem = Memory(proc)
+    pf = profile["person"]
+    club_id_off = profile["club"]["fields"]["club_id"]["off"]
+    contract_club_off = profile["contract"]["fields"]["club_ptr"]["off"]
+    out, seen = [], set()
+    for ref, added in entries:
+        cptr = mem.ptr(ref + pf["contract_ptr"]["off"])
+        club = mem.ptr(cptr + contract_club_off) if cptr else None
+        team = mem.ptr(ref + pf["club_ptr"]["off"])
+        pl = read_player(mem, ref, profile, owner=mem.i32(club + club_id_off) if club else None,
+                         at_club=mem.i32(team + club_id_off) if team else None, cptr=cptr)
+        if pl and pl.unique_id not in seen:
+            seen.add(pl.unique_id)
+            out.append({**_player_dict(pl), "added": _iso(added)})
+    return dict(name=SHORTLIST_NAME, found=True, players=out)
+
+
 def read_snapshot(proc: GameProcess, club_id: int,
                   known_links: dict[str, tuple[str, int, int]] | None = None) -> dict:
     """Read everything for one capture into a plain dict.
@@ -63,6 +102,10 @@ def read_snapshot(proc: GameProcess, club_id: int,
     fixtures = read_fixtures(proc, club_id, profile, names=clubs)
     matches = read_matches(proc, club_id, profile)
     current = {p.unique_id for p in players if not p.loaned_out(club_id)}
+    try:
+        shortlist = read_shortlist_players(proc, profile)
+    except Exception:            # a nice-to-have: never fail a capture over it (and leave stored data alone)
+        shortlist = None
 
     known_links = known_links or {}
     by_fixture = {(f.date.isoformat(), f.home_id, f.away_id): f for f in fixtures}
@@ -122,18 +165,10 @@ def read_snapshot(proc: GameProcess, club_id: int,
         game_date=_iso(today), club_id=club_id, club_colour=club_colour, build_id=proc.build_id(),
         clubs={str(k): v for k, v in clubs.items()
                if k in {f[s] for f in fixture_dicts + upcoming_dicts for s in ("home_id", "away_id")}
-               | {p.at_club_id for p in players} | {club_id}},
-        players=[dict(
-            unique_id=p.unique_id, name=p.name, first_name=p.first_name, last_name=p.last_name,
-            dob=_iso(p.dob), status=_status(p, club_id), at_club_id=p.at_club_id, contract_club_id=p.club_id,
-            ca=p.ca, pa=p.pa, condition=p.fitness, sharpness=p.match_exercise, jadedness=p.jadedness,
-            value=p.value, wage_per_week=p.contract.get("wage_per_week"),
-            contract_start=_iso(p.contract.get("start")), contract_expires=_iso(p.contract.get("expires")),
-            rep_home=p.reputation.get("home"), rep_current=p.reputation.get("current"),
-            rep_world=p.reputation.get("world"), caps=p.caps, intl_goals=p.intl_goals,
-            attributes=p.attributes, positions=p.positions,
-            injuries=[dict(start=_iso(i["start"]), min_days=i.get("min_days"), max_days=i["max_days"]) for i in p.injuries],
-        ) for p in players],
+               | {p.at_club_id for p in players} | {club_id}
+               | {s[k] for s in (shortlist or {}).get("players", []) for k in ("at_club_id", "contract_club_id")}},
+        players=[{**_player_dict(p), "status": _status(p, club_id)} for p in players],
+        shortlist=shortlist,
         fixtures=fixture_dicts,
         upcoming=upcoming_dicts,
         matches=match_dicts,
@@ -179,10 +214,47 @@ def store_snapshot(con: sqlite3.Connection, snap: dict) -> tuple[int, int]:
                     (snap["game_date"], snap["club_id"], snap["club_id"]))
         for f in snap["upcoming"]:
             upsert_fixture(con, f, sid)
+    store_shortlist(con, snap.get("shortlist"), sid)
     new = store_matches(con, snap, sid)
     con.execute("UPDATE snapshots SET n_new_matches = ? WHERE id = ?", (new, sid))
     con.commit()
     return sid, new
+
+
+SL_COLUMNS = ["at_club_id", "contract_club_id", "ca", "pa", "condition", "sharpness", "value", "wage_per_week",
+              "contract_start", "contract_expires", "rep_home", "rep_current", "rep_world", "caps", "intl_goals",
+              "positions", "injuries"]
+
+
+def store_shortlist(con: sqlite3.Connection, sl: dict | None, sid: int) -> None:
+    """Keep the stored shortlist in step with the game's: add this capture's state, forget players taken off it.
+
+    sl None means it couldn't be read this time: stored data is left as it is. found False (no shortlist with that
+    name any more) empties it.
+    """
+    if sl is None:
+        return
+    found = bool(sl.get("found"))
+    keep = [p["unique_id"] for p in sl["players"]] if found else []
+    marks = ",".join("?" * len(keep))
+    for table in ("shortlist", "shortlist_state", "shortlist_attributes"):
+        con.execute(f"DELETE FROM {table}" + (f" WHERE unique_id NOT IN ({marks})" if keep else ""), keep)
+    for p in sl["players"] if found else []:
+        con.execute("""INSERT INTO players (unique_id, name, first_name, last_name, dob) VALUES
+                       (:unique_id, :name, :first_name, :last_name, :dob) ON CONFLICT (unique_id) DO UPDATE SET
+                       name = excluded.name, first_name = excluded.first_name, last_name = excluded.last_name,
+                       dob = excluded.dob""", p)
+        con.execute("""INSERT INTO shortlist VALUES (?, ?, ?) ON CONFLICT (unique_id) DO UPDATE SET
+                       added = COALESCE(excluded.added, shortlist.added)""", (p["unique_id"], p.get("added"), sid))
+        vals = {**p, "positions": json.dumps(p["positions"]) if p.get("positions") else None,
+                "injuries": json.dumps(p["injuries"]) if p.get("injuries") else None}
+        con.execute(f"INSERT OR REPLACE INTO shortlist_state (snapshot_id, unique_id, {', '.join(SL_COLUMNS)}) "
+                    f"VALUES (?, ?, {', '.join('?' * len(SL_COLUMNS))})",
+                    (sid, p["unique_id"], *[vals.get(c) for c in SL_COLUMNS]))
+        con.executemany("INSERT OR REPLACE INTO shortlist_attributes VALUES (?, ?, ?, ?)",
+                        [(sid, p["unique_id"], k, v) for k, v in p["attributes"].items()])
+    con.execute("INSERT INTO meta VALUES ('shortlist_found', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                ("1" if found else "0",))
 
 
 PMS_COLUMNS = ["fixture_id", "unique_id", "lineup_index", "rating", "minutes_on", "minutes_off", "goals", "assists",

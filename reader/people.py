@@ -156,11 +156,9 @@ def read_club_players(proc: GameProcess, club_id: int, profile: dict | None = No
     mem = Memory(proc)
     pf = profile["person"]
     f = pf["fields"]
-    nm = pf["names"]
     club_id_off = profile["club"]["fields"]["club_id"]["off"]
     family_off = profile["club"]["fields"]["family_ptr"]["off"]
     contract_club_off = profile["contract"]["fields"]["club_ptr"]["off"]
-    order = profile["attribute_order"]
 
     clubs: dict[int, tuple[int | None, int | None]] = {}  # club ptr -> (id, family ptr)
 
@@ -192,42 +190,56 @@ def read_club_players(proc: GameProcess, club_id: int, profile: dict | None = No
         uid = _read(mem, ref, f["unique_id"])
         if uid in players:
             continue
-        ca, pa = _read(mem, ref, f["ca"]), _read(mem, ref, f["pa"])
-        attrs = proc.read(ref + pf["attributes"]["off"], pf["attributes"]["len"]) or b""
-        if not ca or not 1 <= ca <= 200 or len(attrs) != 54 or not all(1 <= a <= 100 for a in attrs):
-            continue  # staff or non-player person
-        contract = {}
-        if cptr:
-            for k, spec in profile["contract"]["fields"].items():
-                if not k.endswith("_ptr"):
-                    contract[k] = _read(mem, cptr, spec)
-        first, last = _name(mem, ref, nm["first"]), _name(mem, ref, nm["last"])
-        common = _name(mem, ref, nm["common"])
-        day, year = _read(mem, ref, f["dob_day_of_year"]), _read(mem, ref, f["dob_year"])
-        dob = _fmdate(struct.pack("<hh", day, year)) if day is not None and year is not None else None
-        players[uid] = Player(
-            unique_id=uid,
-            name=common or " ".join(x for x in (first, last) if x) or None,
-            first_name=first,
-            last_name=last,
-            ca=ca,
-            pa=pa if pa is not None and ca <= pa <= 200 else None,
-            attributes=dict(zip(order, attrs)),
-            positions=dict(zip(pf["positions"]["order"],
-                               proc.read(ref + pf["positions"]["off"], pf["positions"]["len"]) or b"")),
-            fitness=_read(mem, ref, f["fitness"]),
-            match_exercise=_read(mem, ref, f["match_exercise"]),
-            jadedness=_read(mem, ref, f["jadedness"]),
-            value=_read(mem, ref, f["value"]),
-            dob=dob,
-            club_id=owner,
-            at_club_id=at_club,
-            at_own_club=at_own,
-            contract=contract,
-            reputation={k: _read(mem, ref, f[f"rep_{k}"]) for k in ("home", "current", "world")},
-            caps=_read(mem, ref, f["caps"]),
-            intl_goals=_read(mem, ref, f["intl_goals"]),
-            injuries=read_injuries(mem, ref, pf.get("injuries")),
-            address=ref,
-        )
+        pl = read_player(mem, ref, profile, owner=owner, at_club=at_club, at_own=at_own, cptr=cptr)
+        if pl:
+            players[uid] = pl
     return list(players.values())
+
+
+def read_player(mem: Memory, ref: int, profile: dict, owner: int | None, at_club: int | None,
+                at_own: bool = True, cptr: int | None = None) -> Player | None:
+    """One Person record as a Player, or None if it isn't a player (staff, or unreadable)."""
+    proc = mem.proc
+    pf = profile["person"]
+    f = pf["fields"]
+    nm = pf["names"]
+    if cptr is None:
+        cptr = mem.ptr(ref + pf["contract_ptr"]["off"])
+    ca, pa = _read(mem, ref, f["ca"]), _read(mem, ref, f["pa"])
+    attrs = proc.read(ref + pf["attributes"]["off"], pf["attributes"]["len"]) or b""
+    if not ca or not 1 <= ca <= 200 or len(attrs) != 54 or not all(1 <= a <= 100 for a in attrs):
+        return None  # staff or non-player person
+    contract = {}
+    if cptr:
+        for k, spec in profile["contract"]["fields"].items():
+            if not k.endswith("_ptr"):
+                contract[k] = _read(mem, cptr, spec)
+    first, last = _name(mem, ref, nm["first"]), _name(mem, ref, nm["last"])
+    common = _name(mem, ref, nm["common"])
+    day, year = _read(mem, ref, f["dob_day_of_year"]), _read(mem, ref, f["dob_year"])
+    dob = _fmdate(struct.pack("<hh", day, year)) if day is not None and year is not None else None
+    return Player(
+        unique_id=_read(mem, ref, f["unique_id"]),
+        name=common or " ".join(x for x in (first, last) if x) or None,
+        first_name=first,
+        last_name=last,
+        ca=ca,
+        pa=pa if pa is not None and ca <= pa <= 200 else None,
+        attributes=dict(zip(profile["attribute_order"], attrs)),
+        positions=dict(zip(pf["positions"]["order"],
+                           proc.read(ref + pf["positions"]["off"], pf["positions"]["len"]) or b"")),
+        fitness=_read(mem, ref, f["fitness"]),
+        match_exercise=_read(mem, ref, f["match_exercise"]),
+        jadedness=_read(mem, ref, f["jadedness"]),
+        value=_read(mem, ref, f["value"]),
+        dob=dob,
+        club_id=owner,
+        at_club_id=at_club,
+        at_own_club=at_own,
+        contract=contract,
+        reputation={k: _read(mem, ref, f[f"rep_{k}"]) for k in ("home", "current", "world")},
+        caps=_read(mem, ref, f["caps"]),
+        intl_goals=_read(mem, ref, f["intl_goals"]),
+        injuries=read_injuries(mem, ref, pf.get("injuries")),
+        address=ref,
+    )

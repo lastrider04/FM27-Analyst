@@ -89,7 +89,7 @@ function styleChart(cfg, size) {
   o.plugins.legend = { ...(o.plugins.legend || {}), labels: { color: CT.text, boxWidth: 14, font: { size: S.legend } } };
   o.plugins.datalabels = {
     display: (ctx) => (ctx.dataset.data[ctx.dataIndex] == null || ctx.dataset.borderDash ? false : "auto"),  // "auto" hides overlaps
-    formatter: fmtVal,
+    formatter: (v, ctx) => (ctx.dataset.fmt ? ctx.dataset.fmt(v) : fmtVal(v)),   // a dataset can bring its own (money)
     // attribute charts colour the number by value; the pill border says whose value it is when comparing
     color: (ctx) => (ctx.dataset.valueColors ? attrColor(ctx.dataset.data[ctx.dataIndex])
       : multi && typeof ctx.dataset.borderColor === "string" ? ctx.dataset.borderColor : CT.text),
@@ -1749,9 +1749,137 @@ function remotePhone(r) {
   }));
 }
 
+// ------------------------------------------------------------------ shortlist
+// Players on the in-game shortlist called "FM Analyst" (only that one): value, contract and development over time.
+const SL_HOWTO = `Only players on your FM27 shortlist called <b>FM Analyst</b> show up here. In the game, create a shortlist
+  with exactly that name and add players to it; they appear here after the next capture. Take a player off it and they
+  disappear here too, history and all, at the next capture.`;
+const SL_SEEN = "fm-shortlist-howto-seen";
+const monthsLeft = (m) => (m == null ? "–" : m < 1 ? "under 1 month" : m < 24 ? `${Math.floor(m)} months` : `${(m / 12).toFixed(1)} years`);
+const contractCls = (m) => (m == null ? "" : m <= 6 ? "c-hot" : m <= 12 ? "c-warm" : m <= 18 ? "c-soon" : "");
+const moneyAxis = { ticks: { ...TICK, callback: (v) => money(v) }, grid: GRID };
+const slSignals = (sig) => (sig.length ? `<ul class="signals">${sig.map((s) => `<li class="s-${s.kind}">${esc(s.text)}</li>`).join("")}</ul>`
+  : '<p class="muted small">Nothing stands out yet. Keep capturing to see value and contract trends.</p>');
+const slClub = (p) => `${crest(p.club_id, "sm")} ${esc(p.club || "–")}${p.on_loan_at ? ` <span class="muted">(on loan at ${esc(p.on_loan_at)})</span>` : ""}`;
+
+// "AM C" -> "AM (C)", the way FM writes positions; and pitch order from the goalkeeper up
+const fmPos = (p) => (/ [LCR]$/.test(p) ? p.replace(/ ([LCR])$/, " ($1)") : p);
+const POS_ORDER = ["GK", "D L", "D C", "D R", "WB L", "WB R", "DM", "M L", "M C", "M R", "AM L", "AM C", "AM R", "ST"];
+const posRank = (p) => (POS_ORDER.includes(p) ? POS_ORDER.indexOf(p) : 99);
+
+async function shortlistPage() {
+  const d = await api("/api/shortlist");
+  let seen = false;
+  try { seen = localStorage.getItem(SL_SEEN) === "1"; } catch { }
+  const showHow = !seen || d.found !== true || !d.players.length;     // the full text the first time, then in the ⓘ
+  const title = h2i(`Shortlist: ${esc(d.name)}`, SL_HOWTO + "<br><br>Contract colours: red = under 6 months left, "
+    + "orange = final year, yellow = under 18 months. Click a position to show only those players, or a player for "
+    + "value, contract and development over time.");
+  // the first time (or while there's nothing to show) a card explains it; after that it's only in the title's ⓘ
+  const head = showHow ? `<div class="card wide"><h2>How the shortlist works</h2><p class="muted">${SL_HOWTO}</p></div>` : "";
+  if (d.found !== true || !d.players.length) {
+    const why = d.found === null ? "No capture has looked for the shortlist yet. Press <b>Capture</b> with FM27 running."
+      : d.found === false ? `There's no shortlist called <b>${esc(d.name)}</b> in your game yet.`
+      : `Your <b>${esc(d.name)}</b> shortlist is empty.`;
+    view.innerHTML = `<div class="card wide">${title}<p class="muted">${SL_HOWTO}</p></div><div class="card empty">${why}</div>`;
+    return;
+  }
+  try { localStorage.setItem(SL_SEEN, "1"); } catch { }
+  const ps = d.players;
+  const byId = Object.fromEntries(ps.map((p) => [p.unique_id, p]));
+  const go = d.go_now.map((id) => byId[id]).filter(Boolean);
+  const counts = {};
+  ps.forEach((p) => { counts[p.primary || "?"] = (counts[p.primary || "?"] || 0) + 1; });
+  const byPos = Object.entries(counts).sort((a, b) => posRank(a[0]) - posRank(b[0]));
+  view.innerHTML = head + `<div class="grid">
+    <div class="card wide">${title}
+      <div class="slcount"><b>${ps.length} player${ps.length === 1 ? "" : "s"}</b>
+        <span class="poschips">${byPos.map(([pos, n]) => `<button class="poschip" data-pos="${esc(pos)}">${n} ${esc(fmPos(pos))}</button>`).join("")}</span></div><div class="scroll"><table class="sl">
+      <thead><tr><th>Player</th><th>Age</th><th class="l">Position</th><th class="l">Club</th><th>CA</th><th>PA</th>
+      <th>Value</th><th>Δ value</th><th>Wage</th><th>Contract</th><th>Left</th></tr></thead><tbody>
+      ${ps.map((p) => `<tr class="clickrow" data-href="shortlist/${p.unique_id}" data-pos="${esc(p.primary || "?")}"><td>${esc(p.name)}${injBadge(p.injury)}</td>
+        <td>${p.age ?? "–"}</td><td class="l">${esc(p.position || "–")}</td><td class="l where">${slClub(p)}</td>
+        <td>${p.ca ?? "–"}${p.ca_change ? ` ${delta(p.ca_change)}` : ""}</td><td>${p.pa ?? "?"}</td>
+        <td data-v="${p.value ?? 0}">${money(p.value)}</td>
+        <td data-v="${p.value_change_pct ?? 0}">${p.value_change_pct == null || !p.history_days ? "–"
+          : `<span class="${p.value_change_pct > 0 ? "up" : p.value_change_pct < 0 ? "down" : ""}">${p.value_change_pct > 0 ? "+" : ""}${num(p.value_change_pct, 0)}%</span>`}</td>
+        <td data-v="${p.wage_per_week ?? 0}">${money(p.wage_per_week)}/w</td><td>${esc(p.contract_expires || "–")}</td>
+        <td data-v="${p.contract_months ?? 999}" class="${contractCls(p.contract_months)}">${monthsLeft(p.contract_months)}</td></tr>`).join("")}
+      </tbody></table></div></div>
+    <div class="card wide">${h2i("Go for them now", "Players who should be cheap now (final year of the contract, or "
+      + "value falling since you started tracking) or about to get dearer (CA rising fast). Being the best at the "
+      + "position in your first team adds to that. Plain rules on the captured data, not advice from the game.")}
+      ${go.length ? `<table class="go"><tbody>${go.map((p) => `<tr class="clickrow" data-href="shortlist/${p.unique_id}">
+        <td><b>${esc(p.name)}</b>${injBadge(p.injury)}<div class="muted small">${slClub(p)}</div></td>
+        <td class="l">${p.go_reasons.map((r) => `<div class="sig good">▲ ${esc(r)}</div>`).join("")}</td>
+        <td>${money(p.value)}<div class="muted small ${contractCls(p.contract_months)}">${monthsLeft(p.contract_months)} left</div></td></tr>`).join("")}
+        </tbody></table>`
+      : '<p class="muted">No one right now: nobody is in the last year of their contract, falling in value or improving fast. Keep capturing as the season goes on.</p>'}</div>
+  </div>`;
+  sortable(view.querySelector("table.sl"));
+  clickableRows(view);
+  view.querySelectorAll(".poschip").forEach((b) => b.addEventListener("click", () => {
+    const on = !b.classList.contains("on");
+    view.querySelectorAll(".poschip").forEach((x) => x.classList.remove("on"));
+    b.classList.toggle("on", on);
+    view.querySelectorAll("table.sl tbody tr").forEach((tr) => { tr.hidden = on && tr.dataset.pos !== b.dataset.pos; });
+  }));
+}
+
+async function shortlistPlayerPage(uid) {
+  let p;
+  try { p = await api(`/api/shortlist/${uid}`); } catch (e) {
+    view.innerHTML = `<div class="card empty">This player isn't on your <b>FM Analyst</b> shortlist (any more). <a href="#shortlist">Back to the shortlist</a></div>`;
+    return;
+  }
+  const h = p.history;
+  const isGK = (p.attributes.goalkeeping?.reflexes || 0) > 50;
+  view.innerHTML = `<div class="grid">
+    <div class="card wide"><div class="cardhead"><div><h1>${esc(p.name)}${injBadge(p.injury)}</h1>
+      <div class="muted">${esc(p.position || "")} · ${slClub(p)} · born ${esc(p.dob || "?")} · on your shortlist since ${esc(p.added || p.tracked_since)}</div></div>
+      <div><a href="#shortlist">← Shortlist</a></div></div>
+      <div class="kpis tiles" style="margin-top:12px">
+        ${kpi(p.age ?? "–", "age")}${kpi(esc(p.primary || "–"), "position")}
+        ${kpi(p.ca ?? "–", "current ability", (p.ca ?? 0) / 200)}${kpi(p.pa ?? "?", "potential", (p.pa ?? 0) / 200)}
+        ${kpi(money(p.value), "value")}${kpi(money(p.wage_per_week), "wage / week")}
+        ${kpi(`<span class="${contractCls(p.contract_months)}">${monthsLeft(p.contract_months)}</span>`, `contract to ${esc(p.contract_expires || "?")}`)}
+        ${p.fit ? kpi(`${p.fit.rank}<small>/${p.fit.of}</small>`, `CA rank at ${esc(fmPos(p.fit.position))} in your team`) : ""}
+        ${kpi(p.caps ?? "–", "caps")}
+      </div></div>
+    <div class="card">${h2i("When to bid", "Plain rules on contract length, value trend, injury and fit in your squad. "
+      + "A player in the last year of a contract usually costs less; under 6 months, clubs abroad can agree a pre-contract.")}
+      ${slSignals(p.signals)}
+      <p class="muted small">Tracked for ${p.history_days} game days (${h.length} capture${h.length === 1 ? "" : "s"}).
+      ${p.value_change != null && p.history_days ? `Value ${p.value_change >= 0 ? "up" : "down"} ${money(Math.abs(p.value_change))} since then.` : ""}</p></div>
+    <div class="card">${h2i("Value", "")}<canvas id="spValue"></canvas></div>
+    <div class="card">${h2i("Contract left", "Months left on the contract at each capture.")}<canvas id="spContract"></canvas></div>
+    <div class="card">${h2i("CA and PA", "")}<canvas id="spCa"></canvas></div>
+    <div class="card">${h2i("Wage", "Weekly wage at each capture.")}<canvas id="spWage"></canvas></div>
+    <div class="card"><h2>Positions</h2><div id="pitch"></div></div>
+    <div class="card"><h2>Attribute profile</h2><canvas id="radar"></canvas></div>
+    <div class="card">${h2i("Changes since tracking", "Raw attribute changes (1–100) since the player was first captured on the shortlist.")}
+      <div class="kpis tiles">${["technical", "mental", "physical"].concat(isGK ? ["goalkeeping"] : []).map((g) => kpi(delta(p.group_change[g] || 0), g)).join("")}</div>
+      ${p.moved.length ? `<p class="small">${p.moved.slice(0, 8).map((c) => c.shown_before !== c.shown_after ? `<b>${label(c.attr)} ${c.shown_before}→${c.shown_after}</b>` : `${label(c.attr)} ${c.raw_delta > 0 ? "+" : ""}${c.raw_delta}`).join(", ")}</p>` : '<p class="muted small">No changes yet.</p>'}</div>
+    <div class="card wide"><h2>Attributes</h2><div class="attrs">${attrBlocks(p.attributes, p.attribute_history, isGK)}</div></div>
+  </div>`;
+  $("#pitch").innerHTML = pitch(p.positions || {});
+  const line = (key, label, axis, fmt) => ({ type: "line", data: { labels: h.map((x) => x.date),
+    datasets: [{ label, data: h.map((x) => x[key]), borderColor: CT.accent, backgroundColor: CT.accent, tension: .2, fmt }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: GRID, ticks: TICK }, y: axis || { grid: GRID, ticks: TICK } } } });
+  chart($("#spValue"), line("value", "Value", moneyAxis, money));
+  chart($("#spContract"), line("contract_months", "Months left", { grid: GRID, ticks: TICK, min: 0 }, (v) => Math.round(v)));
+  chart($("#spWage"), line("wage_per_week", "Wage", { ...moneyAxis, beginAtZero: true }, money));
+  chart($("#spCa"), { type: "line", data: { labels: h.map((x) => x.date),
+    datasets: [{ label: "CA", data: h.map((x) => x.ca), borderColor: CT.accent, tension: .2 },
+               { label: "PA", data: h.map((x) => x.pa), borderColor: CT.muted, borderDash: [4, 4], pointRadius: 0 }] },
+    options: { plugins: { legend: { labels: { color: CT.text } } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK } } } });
+  const flat = Object.assign({}, ...Object.values(p.attributes));
+  chart($("#radar"), radarCfg(RADAR_KEYS[isGK ? "gk" : "outfield"], [{ label: p.name, attrs: flat }]));
+}
+
 // ------------------------------------------------------------------ router
 const routes = { overview, players: playersPage, squad: playersPage, development: developmentPage, per90: per90Page,
-  fixtures: fixturesPage, remote: remotePage, settings: settingsPage };
+  fixtures: fixturesPage, shortlist: shortlistPage, remote: remotePage, settings: settingsPage };
 async function route() {
   closeZoom();
   charts.splice(0).forEach((c) => c.destroy());
@@ -1763,6 +1891,7 @@ async function route() {
     if (name === "player") await playerPage(args[0]);
     else if (name === "match") await matchPage(args[0]);
     else if (name === "compare") await comparePage(args[0], args[1]);
+    else if (name === "shortlist" && args[0]) await shortlistPlayerPage(args[0]);
     else await (routes[name] || overview)();
   } catch (e) {
     view.innerHTML = `<div class="card empty">Error: ${esc(e.message)}</div>`;
