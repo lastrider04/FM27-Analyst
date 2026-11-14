@@ -19,6 +19,8 @@ user32 = window.user32
 MOVE, LEFTDOWN, LEFTUP, RIGHTDOWN, RIGHTUP, WHEEL, ABSOLUTE, VIRTUALDESK = (
     0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0800, 0x8000, 0x4000)
 KEYUP, UNICODE, SCANCODE = 0x0002, 0x0004, 0x0008
+XDOWN, XUP = 0x0080, 0x0100
+NAV_BUTTONS = {"back": 0x0001, "forward": 0x0002}    # the mouse's side buttons (XBUTTON1/2): FM27's Back and Forward
 PRESS_HOLD_S = 0.15       # button held this long before a drag starts moving
 DRAG_STEP_PX = 12         # drag moves are split into steps no bigger than this
 DRAG_STEP_S = 0.006
@@ -134,6 +136,18 @@ class Controller:
                 _send(_mouse(up))
                 if double and n == 0:
                     time.sleep(0.06)
+
+    def nav(self, direction: str, x: float, y: float) -> None:
+        """Back or Forward, as the mouse's side buttons with the cursor over FM27 (where the gesture was drawn)."""
+        button = NAV_BUTTONS.get(direction)
+        if button is None:
+            raise ValueError(f"Unknown direction: {direction}")
+        with self.lock:
+            self._move_to(self._target(), x, y)
+            time.sleep(0.03)
+            _send(_mouse(XDOWN, data=button))
+            time.sleep(0.03)
+            _send(_mouse(XUP, data=button))
 
     def press(self, x: float, y: float) -> None:
         """Hold the left button down (Drag mode: the phone sends this as soon as a finger touches)."""

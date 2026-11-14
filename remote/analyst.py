@@ -139,3 +139,50 @@ def start_capture(port_: int | None = None) -> dict:
 def capture_state(port_: int | None = None) -> dict:
     s = fetch("/api/capture", port_ or port())
     return {"running": bool(s.get("running")), "elapsed": s.get("elapsed"), "last": s.get("last")}
+
+
+# ---- AI coach (the App panel's chat). The analyst holds the provider settings, the keys and the saved conversations;
+# the phone only sends questions and reads answers.
+CHAT_TIMEOUT_S = 300
+
+
+def coach_status(port_: int | None = None) -> dict:
+    s = fetch("/api/llm/status", port_ or port())
+    return {"ready": bool(s.get("ready")), "label": s.get("label") or ""}     # nothing else (no email, no endpoint)
+
+
+def coach_conversation(cid: str, port_: int | None = None) -> dict | None:
+    import urllib.parse
+    try:
+        d = fetch(f"/api/chats/{urllib.parse.quote(cid, safe='')}", port_ or port())
+    except AnalystUnavailable:
+        return None
+    return {"messages": [{k: m.get(k) for k in ("role", "content", "tools") if m.get(k) is not None}
+                         for m in d.get("messages") or [] if m.get("role") in ("user", "assistant")]}
+
+
+def coach_stream(body: dict, port_: int | None = None):
+    """POST the question to the analyst's /api/chat and pass its server-sent events straight through."""
+    port_ = port_ or port()
+    req = urllib.request.Request(f"http://127.0.0.1:{port_}/api/chat", data=json.dumps(body).encode("utf-8"),
+                                 method="POST", headers={"Content-Type": "application/json"})
+    try:
+        r = urllib.request.urlopen(req, timeout=CHAT_TIMEOUT_S)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")
+        try:
+            detail = json.loads(detail).get("detail", detail)
+        except ValueError:
+            pass
+        raise AnalystUnavailable(str(detail)) from e
+    except (urllib.error.URLError, OSError) as e:
+        raise AnalystUnavailable(f"The FM27 analyst isn't answering on port {port_} ({e}).") from e
+
+    def chunks():
+        with r:
+            while True:
+                b = r.read1(4096)
+                if not b:
+                    return
+                yield b
+    return chunks()

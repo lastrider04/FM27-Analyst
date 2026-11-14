@@ -64,6 +64,10 @@ code. A phone paired this way can use every network remote play is on.
 whole screen. Press and hold for a magnifier, slide to aim, and lift to click there. The minimap in the corner shows
 where you are; tap it or drag on it to jump.
 
+**Back and Forward.** Draw a full circle with one finger: anticlockwise goes **Back**, clockwise goes **Forward**,
+like the side buttons on a mouse. A label flashes to show which one was sent. It works in Mouse mode too, but not
+while Drag or Scroll is on.
+
 **The shortcut row** (FM27's own keys): **Continue**, Portal, Squad, Tactics, News, **Save** (Ctrl+S), and **App**.
 You can change the shortcuts in `data\remote_shortcuts.json`. Only single keys are allowed, plus Ctrl+S.
 
@@ -78,6 +82,9 @@ suits most home Wi-Fi.
 - **Next match:** suggested changes, who to rest, fitness alerts;
 - **Squad:** condition, sharpness and form for every player, sortable; tap a player for more;
 - **Fixtures:** the next ten matches and the last ten results.
+
+**💬 Ask the coach** (bottom right of the panel) opens the analyst's AI coach. It uses the provider you set in the
+analyst (**Settings › AI coach**), and your conversations are saved there too. Tap a tab to go back to the lists.
 
 **Update** captures FM27 straight away. Tap **App** again or ✕ to close it.
 

@@ -253,3 +253,43 @@ body.typing #controls, body.pairing #controls { display: none; }
 #controls button.ask { position: relative; }
 #controls button.ask::after { content: ""; position: absolute; top: 6px; right: calc(50% - 15px); width: 8px; height: 8px;
                               border-radius: 50%; background: var(--warn); }
+
+/* Back / Forward from the circle gesture */
+.navtoast{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);padding:10px 18px;border-radius:12px;
+  background:rgba(11,18,32,.85);color:#fff;font:600 18px system-ui,sans-serif;pointer-events:none;transition:opacity .3s}
+.navtoast.gone{opacity:0}
+
+/* App panel › AI coach */
+#picks:not([hidden]) { display: flex; flex-direction: column; }
+#picks > #picks-body { flex: 1 0 auto; width: 100%; }
+#picks .coachfab { position: sticky; bottom: 0; align-self: flex-end; margin: 10px 0 0; z-index: 2; font: inherit; font-size: 15px;
+  border: 0; border-radius: 24px; padding: 11px 18px; background: var(--accent); color: #fff; box-shadow: 0 8px 24px #0009; }
+#picks .coachfab[hidden], #coach-form[hidden] { display: none; }
+#coach-form { position: sticky; bottom: 0; width: 100%; display: flex; gap: 8px; padding: 10px 0 2px; background: var(--bg); z-index: 2; }
+#coach-input { flex: 1; min-width: 0; resize: none; font: inherit; font-size: 16px; color: var(--fg); background: #ffffff0f;
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; max-height: 120px; }
+#coach-send { font: inherit; border: 0; border-radius: 10px; padding: 0 16px; background: var(--accent); color: #fff; }
+#coach-send:disabled { opacity: .6; }
+#picks .coachtop { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; }
+#picks .coachtop .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #4cc27a26; color: #7fd69a; }
+#picks .coachtop .pill.down { background: #e0a03026; color: #e0a030; }
+#picks .coachtop button { margin-left: auto; font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 10px; background: transparent; color: var(--fg); }
+#picks .coachtop button[hidden] { display: none; }
+#picks .chat { display: flex; flex-direction: column; gap: 8px; }
+#picks .msg { max-width: 92%; padding: 8px 12px; border-radius: 12px; line-height: 1.45; overflow-wrap: anywhere; font-size: 14px; }
+#picks .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+#picks .msg.bot { align-self: flex-start; background: #ffffff0d; border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+#picks .msg.err { border-color: #e06060; }
+#picks .msg p { margin: 0 0 6px; } #picks .msg p:last-child { margin-bottom: 0; }
+#picks .msg ul, #picks .msg ol { display: block; margin: 4px 0 6px; padding-left: 20px; }
+#picks .msg li { background: none; padding: 0; margin: 2px 0; border-radius: 0; }
+#picks .msg h4 { margin: 8px 0 4px; font-size: 13px; }
+#picks .msg code { background: #0006; padding: 0 4px; border-radius: 3px; }
+#picks .msg .mdt { overflow-x: auto; } #picks .msg table { border-collapse: collapse; font-size: 12px; margin: 4px 0; }
+#picks .msg th, #picks .msg td { padding: 3px 6px; text-align: left; border-bottom: 1px solid var(--line); }
+#picks .msgmeta { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+#picks .typing { color: var(--muted); }
+#picks .qchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+#picks .qchips button { font: inherit; font-size: 12.5px; text-align: left; border: 1px solid var(--line); border-radius: 14px;
+  padding: 6px 10px; background: #ffffff0d; color: var(--fg); }

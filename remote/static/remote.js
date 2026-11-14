@@ -8,6 +8,7 @@
 //                       it turns the mouse wheel
 //   press and hold      magnifier: slide to aim precisely, lift to click there
 //   minimap             tap or drag to jump around while zoomed in
+//   draw a circle       anticlockwise = FM27's Back, clockwise = Forward (one finger, a full turn)
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -365,7 +366,7 @@ cv.addEventListener("pointerdown", (e) => {
   if (pointers.size === 1 && mouseMode) {
     mouseDown(p);
   } else if (pointers.size === 1) {
-    gesture = { kind: "single", start: p, last: p, t0: performance.now(), moved: false, wheelAcc: 0,
+    gesture = { kind: "single", start: p, last: p, path: [p], t0: performance.now(), moved: false, wheelAcc: 0,
                 pressed: false, loupe: false, startScale: scale, startTx: tx, startTy: ty };
     if (modes.drag) {          // like a real mouse: the button goes down the moment the finger touches
       gesture.pressed = true;
@@ -406,6 +407,7 @@ cv.addEventListener("pointermove", (e) => {
     return;
   }
   if (gesture.kind !== "single") return;
+  if (gesture.path.length < 600) gesture.path.push(p);
   if (gesture.mouse) { mouseMove(p); return; }
   const dx = p.x - gesture.start.x, dy = p.y - gesture.start.y;
   if (!gesture.moved && Math.hypot(dx, dy) > TAP_SLOP) {
@@ -447,6 +449,7 @@ function endPointer(e) {
   }
   const g = gesture; gesture = null;
   clearTimeout(g.hold);
+  if (e.type !== "pointercancel" && circleGesture(g)) return;
   if (g.mouse) { mouseUp(g, e.type === "pointercancel"); return; }
   if (e.type === "pointercancel") { hideLoupe(); if (g.pressed) send({ t: "release", ...fmPoint(g.last.x, g.last.y) }); return; }
   if (g.loupe) { hideLoupe(); click(g.last.x, g.last.y); return; }
@@ -467,13 +470,63 @@ function endPointer(e) {
   tapTimer = setTimeout(() => { lastTap = null; click(p.x, p.y); }, modes.right ? 0 : DOUBLE_MS);
 }
 cv.addEventListener("pointerup", endPointer);
+
+// A full circle drawn with one finger: anticlockwise goes Back, clockwise goes Forward (the mouse's side buttons).
+// Needs most of a turn (300 degrees or more), a roughly even radius and a circle big enough not to be a wobble.
+function circleTurn(path) {
+  if (path.length < 10) return null;
+  let cx = 0, cy = 0;
+  for (const q of path) { cx += q.x; cy += q.y; }
+  cx /= path.length; cy /= path.length;
+  const radii = path.map((q) => Math.hypot(q.x - cx, q.y - cy));
+  const r = radii.reduce((a, b) => a + b, 0) / radii.length;
+  if (r < 30) return null;
+  const spread = Math.sqrt(radii.reduce((a, b) => a + (b - r) ** 2, 0) / radii.length) / r;
+  if (spread > 0.35) return null;
+  let turn = 0, prev = Math.atan2(path[0].y - cy, path[0].x - cx);
+  for (const q of path) {
+    if (Math.hypot(q.x - cx, q.y - cy) < r * 0.3) continue;      // too close to the middle to trust the angle
+    const a = Math.atan2(q.y - cy, q.x - cx);
+    let d = a - prev;
+    if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+    turn += d; prev = a;
+  }
+  if (Math.abs(turn) < Math.PI * 5 / 3) return null;
+  return { dir: turn > 0 ? "forward" : "back", x: cx, y: cy };        // screen y points down: positive = clockwise
+}
+function circleGesture(g) {
+  if (!g.moved || g.loupe || g.pressed || modes.scroll) return false;
+  const c = circleTurn(g.path);
+  if (!c) return false;
+  let at;
+  if (g.mouse) {
+    at = cursorPt();
+  } else {
+    tx = g.startTx; ty = g.startTy; clampView(); viewChanged();       // undo the panning the circle did
+    at = fmPoint(c.x, c.y);
+  }
+  send({ t: "nav", dir: c.dir, ...at });
+  navigator.vibrate?.(20);
+  navToast(c.dir === "back" ? "← Back" : "Forward →");
+  return true;
+}
+function navToast(text) {
+  const d = document.createElement("div");
+  d.className = "navtoast"; d.textContent = text;
+  stage.appendChild(d);
+  setTimeout(() => d.classList.add("gone"), 450);
+  setTimeout(() => d.remove(), 800);
+}
 cv.addEventListener("pointercancel", endPointer);
 
 // ------------------------------------------------------------------ Mouse mode
-const cursorPt = () => ({ x: Math.round(cursor.x), y: Math.round(cursor.y) });
+function cursorPt() {
+  if (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)) { cursor.x = fw / 2; cursor.y = fh / 2; }
+  return { x: Math.round(cursor.x), y: Math.round(cursor.y) };
+}
 
 function mouseDown(p) {
-  gesture = { kind: "single", mouse: true, start: p, last: p, moved: false, pressed: false, wheelAcc: 0 };
+  gesture = { kind: "single", mouse: true, start: p, last: p, path: [p], moved: false, pressed: false, wheelAcc: 0 };
   if (modes.drag) {                      // Drag on: the button goes down at the cursor straight away
     gesture.pressed = cursorDown = true;
     send({ t: "press", ...cursorPt() }); draw();
@@ -509,6 +562,7 @@ function mouseMove(p) {
     }
     return;
   }
+  cursorPt();                            // repairs a cursor that never got a real position
   cursor.x = Math.min(Math.max(cursor.x + step.x / scale * MOUSE_SPEED, 0), fw - 1);
   cursor.y = Math.min(Math.max(cursor.y + step.y / scale * MOUSE_SPEED, 0), fh - 1);
   keepCursorInView();
@@ -552,8 +606,9 @@ function setMouseMode(on) {
   b.querySelector("span").textContent = on ? "Mouse" : "Touch";
   b.classList.toggle("on", on);
   if (on) {                              // start the cursor in the middle of what's on screen
-    const r = visibleRegion();
-    cursor.x = r.x + r.w / 2; cursor.y = r.y + r.h / 2;
+    const r = visibleRegion();         // (opening in Mouse mode, the screen may not be laid out yet: use the middle)
+    const ok = Number.isFinite(r.x + r.y + r.w + r.h) && r.w > 0 && r.h > 0;
+    cursor.x = ok ? r.x + r.w / 2 : fw / 2; cursor.y = ok ? r.y + r.h / 2 : fh / 2;
   }
   status(on ? "Mouse: slide to move the cursor, tap to click, hold then slide to drag" : "Touch: tap where you want to click");
   draw();
@@ -869,6 +924,8 @@ const TEAM_TABS = {
   fixtures: { url: "/api/analyst/fixtures", render: renderFixtures },
 };
 async function loadPicks() {
+  if (teamTab === "coach") { showCoach(); return; }
+  $("coach-form").hidden = true; $("picks-coach").hidden = false;
   const tab = TEAM_TABS[teamTab] ? teamTab : (teamTab = "next"), body = $("picks-body");
   for (const b of document.querySelectorAll("#picks-tabs button")) b.classList.toggle("on", b.dataset.tab === tab);
   body.innerHTML = '<p class="empty">Loading…</p>';
@@ -894,6 +951,12 @@ $("picks-tabs").onclick = (e) => {
   loadPicks();
 };
 $("picks-body").onclick = (e) => {
+  if (teamTab === "coach") {
+    const q = e.target.closest("[data-q]");
+    if (q) askCoach(q.dataset.q);
+    if (e.target.closest("#coach-new") && !coachBusy) { coachMsgs = []; setCoachConv(null); renderCoach(); }
+    return;
+  }
   if (!squadData || teamTab !== "squad") return;
   const chip = e.target.closest("[data-sort]");
   const row = e.target.closest("li.player");
@@ -926,6 +989,136 @@ $("picks-update").onclick = async () => {
     b.disabled = false; b.textContent = "Update";
   }
 };
+
+// ---- AI coach: the analyst's chat, in the App panel. The analyst holds the provider, the keys and the saved
+// conversations (the same ones its own chat lists); the phone sends questions and shows the streamed answers.
+const COACH_KEY = "fm27remote.coach";
+const COACH_QUESTIONS = ["Who should I rest for the next match?", "Pick my strongest fit XI for the next match.",
+  "Who's on form and should stay in the matchday squad?", "Who's really tired and needs a rest?"];
+let coachMsgs = [], coachConv = null, coachBusy = false, coachReady = null, coachLoaded = false;
+try { coachConv = localStorage.getItem(COACH_KEY); } catch { /* storage blocked */ }
+function setCoachConv(id) {
+  coachConv = id;
+  try { id ? localStorage.setItem(COACH_KEY, id) : localStorage.removeItem(COACH_KEY); } catch { /* storage blocked */ }
+}
+function coachMd(src) {            // small, safe markdown: escape first, then bold/italic/code, lists, tables, paragraphs
+  const inline = (t) => t.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>");
+  let html = "", list = null, table = [];
+  const endList = () => { if (list) { html += `</${list}>`; list = null; } };
+  const endTable = () => {
+    if (!table.length) return;
+    const rows = table.filter((r) => !/^\|?\s*:?-{2,}/.test(r)).map((r) => r.replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim())));
+    html += `<div class="mdt"><table><tr>${rows[0].map((c) => `<th>${c}</th>`).join("")}</tr>`
+      + rows.slice(1).map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("") + "</table></div>";
+    table = [];
+  };
+  for (const raw of esc(src).split("\n")) {
+    const l = raw.trimEnd();
+    let m;
+    if (/^\s*\|.*\|\s*$/.test(l)) { endList(); table.push(l.trim()); continue; }
+    endTable();
+    if ((m = l.match(/^\s*[-*•]\s+(.*)/))) { if (list !== "ul") { endList(); html += "<ul>"; list = "ul"; } html += `<li>${inline(m[1])}</li>`; continue; }
+    if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { endList(); html += "<ol>"; list = "ol"; } html += `<li>${inline(m[1])}</li>`; continue; }
+    endList();
+    if ((m = l.match(/^#{1,4}\s+(.*)/))) html += `<h4>${inline(m[1])}</h4>`;
+    else if (l.trim()) html += `<p>${inline(l)}</p>`;
+  }
+  endList(); endTable();
+  return html;
+}
+function renderCoach() {
+  if (teamTab !== "coach") return;
+  const body = $("picks-body");
+  const top = `<div class="coachtop"><span class="pill${coachReady?.ready ? "" : " down"}">${esc(coachReady?.label || "AI coach")}</span>
+    <button type="button" id="coach-new"${coachMsgs.length && !coachBusy ? "" : " hidden"}>New chat</button></div>`;
+  if (coachReady && !coachReady.ready) {
+    body.innerHTML = top + '<p class="empty">The AI coach is not set up yet. Choose a provider in the analyst on your PC, under Settings › AI coach.</p>';
+    return;
+  }
+  const chips = (n) => `<div class="qchips">${COACH_QUESTIONS.slice(0, n).map((q) =>
+    `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>`;
+  body.innerHTML = top + (coachMsgs.length ? `<div class="chat">${coachMsgs.map((m) => m.role === "user"
+      ? `<div class="msg user">${esc(m.content)}</div>`
+      : `<div class="msg bot${m.error ? " err" : ""}">${m.status && !m.content ? `<span class="typing">🔎 ${esc(m.status)}…</span>` : ""}${coachMd(m.content)
+        || (m.status ? "" : '<span class="typing">…</span>')}${m.tools?.length ? `<div class="msgmeta">🔎 ${esc(m.tools.join(" · "))}</div>` : ""}</div>`).join("")}</div>`
+      + (coachBusy ? "" : chips(2))
+    : `<p class="empty">Ask about your squad. The coach uses what the analyst captured from FM27.</p>${chips(4)}`);
+  picksEl.scrollTop = picksEl.scrollHeight;
+}
+async function showCoach() {
+  for (const b of document.querySelectorAll("#picks-tabs button")) b.classList.remove("on");
+  $("picks-asof").textContent = "";
+  $("picks-coach").hidden = true; $("coach-form").hidden = false;
+  if (!coachLoaded) $("picks-body").innerHTML = '<p class="empty">Loading…</p>';
+  else renderCoach();
+  try {
+    const q = !coachLoaded && coachConv ? `?conversation=${encodeURIComponent(coachConv)}` : "";
+    const r = await fetch("/api/coach" + q, { cache: "no-store" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
+    coachReady = d;
+    if (q) { if (d.conversation) coachMsgs = d.conversation.messages; else setCoachConv(null); }
+    coachLoaded = true;
+    renderCoach();
+  } catch (e) {
+    if (teamTab === "coach") $("picks-body").innerHTML = `<p class="empty">${esc(e.message)}</p>`;
+  }
+}
+async function askCoach(text) {
+  text = (text || "").trim();
+  if (!text || coachBusy) return;
+  coachBusy = true; $("coach-send").disabled = true;
+  coachMsgs.push({ role: "user", content: text });
+  const reply = { role: "assistant", content: "" };
+  coachMsgs.push(reply);
+  renderCoach();
+  try {
+    const r = await fetch("/api/coach", { method: "POST",
+      headers: { "X-FM-Remote": "1", "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: coachConv,
+        messages: coachMsgs.filter((m) => !m.error && m !== reply).map(({ role, content }) => ({ role, content })) }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Error ${r.status}`);
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const ev = buf.slice(0, i); buf = buf.slice(i + 2);
+        const data = ev.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("");
+        if (!data) continue;
+        const e = JSON.parse(data);
+        if (e.conversation) setCoachConv(e.conversation);
+        if (e.delta) { reply.content += e.delta; reply.status = null; renderCoach(); }
+        if (e.tool) { reply.status = e.tool; (reply.tools ||= []).push(e.tool); renderCoach(); }
+        if (e.error) { reply.content = e.error + "\n\nCheck **Settings › AI coach** in the analyst."; reply.error = true; }
+      }
+    }
+    if (!reply.content) { reply.content = "No answer came back. Try again."; reply.error = true; }
+  } catch (e) {
+    reply.content = `Couldn't reach the coach: ${e.message}`; reply.error = true;
+  }
+  reply.status = null; coachBusy = false; $("coach-send").disabled = false;
+  renderCoach();
+}
+$("picks-coach").onclick = () => {
+  teamTab = "coach";
+  try { localStorage.setItem("fm27remote.team", "coach"); } catch { /* storage blocked */ }
+  showCoach();
+};
+$("coach-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = $("coach-input").value; $("coach-input").value = ""; askCoach(t);
+});
+$("coach-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("coach-form").requestSubmit(); }
+});
+// the tool bars make way for the phone keyboard while typing a question, as they do for the FM27 keyboard
+$("coach-input").addEventListener("focus", () => document.body.classList.add("typing"));
+$("coach-input").addEventListener("blur", () => document.body.classList.remove("typing"));
 
 // ------------------------------------------------------------------ "FM27 needs you" (Phase 3)
 // The PC watches FM27's top-right button (remote/fmstate.py): "»" = waiting for you, anything else = busy (processing

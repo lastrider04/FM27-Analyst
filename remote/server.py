@@ -20,6 +20,7 @@ Video (Phase 2, WebRTC):
 from __future__ import annotations
 
 import asyncio
+import math
 import ctypes
 import json
 import os
@@ -272,7 +273,12 @@ class Client:
             await self.stop_video()
             return
         c = self.hub.controller
-        x, y = float(msg.get("x", 0)), float(msg.get("y", 0))
+        try:                            # a bad position from the phone is ignored, never allowed to drop the connection
+            x, y = float(msg.get("x") or 0), float(msg.get("y") or 0)
+        except (TypeError, ValueError):
+            return
+        if not (math.isfinite(x) and math.isfinite(y)):
+            return
         actions = {
             "click": lambda: c.click(x, y, "right" if msg.get("button") == "right" else "left", bool(msg.get("double"))),
             "press": lambda: c.press(x, y),
@@ -282,13 +288,14 @@ class Client:
             "wheel": lambda: c.wheel(x, y, int(msg.get("n", 0))),
             "text": lambda: c.text(str(msg.get("s", ""))),
             "key": lambda: c.key(str(msg.get("k", ""))),
+            "nav": lambda: c.nav(str(msg.get("dir", "")), x, y),
         }
         fn = actions.get(t)
         if fn is None:
             return
         try:
             await asyncio.to_thread(fn)
-        except (PermissionError, LookupError, RuntimeError, ValueError) as e:
+        except (PermissionError, LookupError, RuntimeError, ValueError, TypeError) as e:
             await self.send_json(self.hub.status(str(e)))
 
 
@@ -492,6 +499,44 @@ def create_app(lan: bool) -> FastAPI:
             return await asyncio.to_thread(fn)
         except analyst.AnalystUnavailable as e:
             raise HTTPException(503, str(e))
+
+    @app.get("/api/coach")
+    async def coach_status(request: Request, conversation: str | None = None):
+        """App panel › coach: is the AI coach set up, and (optionally) a saved conversation to reopen. Paired only."""
+        device, _ = auth.device_for(request.cookies, request.client.host if request.client else "", hub.lan)
+        if device is None:
+            raise HTTPException(401, "Pair this phone first.")
+        from . import analyst
+        try:
+            out = await asyncio.to_thread(analyst.coach_status)
+        except analyst.AnalystUnavailable as e:
+            raise HTTPException(503, str(e))
+        if conversation:
+            out["conversation"] = await asyncio.to_thread(analyst.coach_conversation, conversation[:80])
+        return out
+
+    @app.post("/api/coach")
+    async def coach_chat(request: Request):
+        """App panel › coach: ask the analyst's AI coach; its answer streams back as server-sent events.
+        Paired phones, from the remote-play page only (the question goes to the provider set in the analyst)."""
+        from fastapi.responses import StreamingResponse
+        device = paired_post(request)
+        try:
+            body = await request.json()
+            msgs = [{"role": str(m["role"]), "content": str(m["content"])[:8000]}
+                    for m in body.get("messages", [])[-24:] if m.get("role") in ("user", "assistant")]
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise HTTPException(400, "Bad request.")
+        cid = body.get("conversation_id")
+        req = {"messages": msgs, "page": "overview", "conversation_id": str(cid)[:80] if cid else None}
+        from . import analyst
+        try:
+            stream = await asyncio.to_thread(analyst.coach_stream, req)
+        except analyst.AnalystUnavailable as e:
+            raise HTTPException(503, str(e))
+        print(f"[remote] {device['name']}: asked the coach")
+        return StreamingResponse(stream, media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.post("/api/analyst/capture")
     async def analyst_capture(request: Request):
