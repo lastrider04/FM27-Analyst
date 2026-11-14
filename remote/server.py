@@ -428,7 +428,8 @@ def create_app(lan: bool) -> FastAPI:
             "https": hub.https_url,
             "lan": [f"http://{ip}:{request.url.port or 8777}" for ip in addresses()],
             "devices": [{"id": d["id"], "name": d["name"], "last_seen": d.get("last_seen"),
-                         "notifications": d["id"] in notified} for d in auth.DEVICES.listing()],
+                         "notifications": d["id"] in notified, "link": d.get("link")}
+                        for d in auth.DEVICES.listing()],
             "connected": sorted({c.device["name"] for c in hub.clients if c.device.get("id") != "local"}),
             "fm": hub.fm.get("state"),
             "paused": hub.controller.paused,
@@ -516,13 +517,18 @@ def create_app(lan: bool) -> FastAPI:
         threading.Timer(0.3, lambda: os._exit(0)).start()
         return {"ok": True}
 
+    code_links: dict[str, str] = {}     # pairing code -> the phone-app device it was made for
+
     @app.get("/local/pair-code")
-    def local_pair_code(request: Request):
-        """A fresh one-time pairing code, for this PC only (python -m remote code)."""
-        if (request.client.host if request.client else "") not in ("127.0.0.1", "::1"):
-            raise HTTPException(403)
+    def local_pair_code(request: Request, link: str = ""):
+        """A fresh one-time pairing code, for this PC only (python -m remote code, the analyst). With link (a phone-app
+        device id) the phone it pairs is tied to that device's remote-play permissions in the analyst."""
+        pc_only(request)
         code = auth.new_pair_code()
-        print(f"[remote] pairing code: {code[:4]}-{code[4:]} (single use, 10 minutes)")
+        if link:
+            code_links[code] = link[:32]
+        print(f"[remote] pairing code: {code[:4]}-{code[4:]} (single use, 10 minutes)"
+              + (" from the phone app" if link else ""))
         return {"code": code, "minutes": 10}
 
     @app.post("/api/pair")
@@ -538,7 +544,8 @@ def create_app(lan: bool) -> FastAPI:
             auth.LIMIT.fail()
             raise HTTPException(400, "That code is wrong or has expired. Get a new one on the PC.")
         name = auth.device_name(body.name, request)
-        token = auth.DEVICES.add(name, "code")
+        link = code_links.pop(auth.norm_code(body.code), None)
+        token = auth.DEVICES.add(name, "phone app", link=link) if link else auth.DEVICES.add(name, "code")
         print(f"[remote] paired: {name}")
         resp = JSONResponse({"ok": True, "name": name})
         resp.set_cookie(auth.COOKIE, token, max_age=auth.DEVICE_DAYS * 86400, httponly=True,
@@ -565,16 +572,20 @@ def create_app(lan: bool) -> FastAPI:
         if hub.fm.get("state"):
             await client.send_json(hub.fm)
         streamer = asyncio.create_task(client.stream())
-        token = ws.cookies.get(auth.COOKIE)
+        ip = ws.client.host if ws.client else ""
 
         async def watchdog():
-            """Unpairing on the PC (python -m remote revoke) cuts a connected phone off within seconds."""
+            """Unpairing on the PC, or turning remote play off for this phone in the analyst, cuts it off within
+            seconds."""
             while not client.closed:
                 await asyncio.sleep(REVOKE_CHECK_S)
-                if device.get("id") != "local" and await asyncio.to_thread(auth.DEVICES.find, token) is None:
-                    print(f"[remote] {device['name']} was unpaired: disconnecting it")
-                    await client.send_json({"t": "denied", "pair": True,
-                                            "msg": "This phone was unpaired on the PC. Pair it again to continue."})
+                if device.get("id") == "local":
+                    continue
+                still, why = await asyncio.to_thread(auth.device_for, ws.cookies, ip, hub.lan)
+                if still is None:
+                    print(f"[remote] {device['name']} is no longer allowed: disconnecting it")
+                    await client.send_json({"t": "denied", "pair": why == "pair", "msg": "This phone was unpaired "
+                                            "on the PC. Pair it again to continue." if why == "pair" else why})
                     client.closed = True
                     await asyncio.to_thread(hub.controller.release_all)
                     try:

@@ -1283,7 +1283,12 @@ async function phonePane() {
     ${r.devices.length ? `<table class="saves"><tbody>${r.devices.map((d) => `<tr><td class="l"><b>${esc(d.name)}</b>
       <br><span class="muted small0">via ${esc(DEVICE_VIA[d.method] || d.method)} · paired ${ago(d.created)}</span></td>
       <td class="l muted">last used ${ago(d.last_seen)}</td>
-      <td class="snapbtns"><button class="secondary danger" data-revoke="${esc(d.id)}">Revoke</button></td></tr>`).join("")}</tbody></table>`
+      <td class="l rpnets">${[["rp_wifi", "Remote play on home Wi-Fi"], ["rp_tailscale", "Remote play over Tailscale"]]
+        .map(([k, t]) => `<label class="switch small0"><input type="checkbox" data-rpnet="${k}" data-dev="${esc(d.id)}"
+          ${d[k] ? "checked" : ""}><span class="knob"></span><span>${t}</span></label>`).join("")}</td>
+      <td class="snapbtns"><button class="secondary danger" data-revoke="${esc(d.id)}">Revoke</button></td></tr>`).join("")}</tbody></table>
+      <p class="muted small0">Remote play lets a phone control FM27 (see the Remote tab). Turned on here, the phone opens
+      it from its own Remote tab with nothing to pair. Turning it off cuts the phone off within seconds.</p>`
       : '<p class="muted">No devices paired yet.</p>'}
   </div>
 
@@ -1340,6 +1345,14 @@ async function phonePane() {
   });
   $("#pwClear")?.addEventListener("click", () => confirm("Remove the password? Devices already paired stay signed in.")
     && save({ clear_password: true }, "Password removed"));
+  el.querySelectorAll("[data-rpnet]").forEach((c) => c.addEventListener("change", async () => {
+    const where = c.dataset.rpnet === "rp_wifi" ? "on home Wi-Fi" : "over Tailscale";
+    try {
+      await api(`/api/remote/devices/${c.dataset.dev}`, { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [c.dataset.rpnet]: c.checked }) });
+      toast(`Remote play ${where} ${c.checked ? "on" : "off"} for this device`);
+    } catch (err) { c.checked = !c.checked; toast(err.message, true); }
+  }));
   el.querySelectorAll("[data-revoke]").forEach((b) => b.addEventListener("click", async () => {
     if (!confirm("Revoke this device? It will have to sign in again.")) return;
     try { await api(`/api/remote/devices/${b.dataset.revoke}`, { method: "DELETE" }); toast("Device revoked"); phonePane(); }
@@ -1561,32 +1574,39 @@ async function remotePage() {
   });
 }
 
-// On a phone: where to open remote play. It opens at its own address (not inside this app), because it only runs on
-// home Wi-Fi or Tailscale and keeps its own pairing.
+// On a phone: open remote play on home Wi-Fi or over Tailscale, whichever this phone is allowed (Settings › Phone on
+// the PC). Each button gets a one-time code from the analyst, so remote play opens already paired (the code goes
+// unused if the phone is paired there already). Remote play runs at its own address, never through the public proxy.
 function remotePhone(r) {
-  const links = [r.https && { url: r.https, what: "Over Tailscale (HTTPS): works away from home, with phone notifications" },
-    ...(r.lan || []).map((u) => ({ url: u, what: u.includes("//100.") ? "Over Tailscale" : "On your home Wi-Fi" }))].filter(Boolean);
+  const nets = r.networks || {};
+  const NET = {
+    wifi: { label: "On home Wi-Fi", what: "When this phone is on the same Wi-Fi as the PC" },
+    tailscale: { label: "Over Tailscale", what: "From anywhere, with Tailscale on. Phone notifications work here" },
+  };
+  const usable = Object.keys(NET).filter((n) => nets[n]?.allowed && nets[n]?.available);
+  const off = Object.keys(NET).filter((n) => !nets[n]?.allowed);
   view.innerHTML = `
   <div class="card wide">${h2i("Remote play", "Play FM27 from this phone: a live picture of the game with touch controls, "
-    + "FM27's shortcuts, the analyst's picks, and an alert when FM27 needs you. It opens at its own address, on your home "
-    + "Wi-Fi or over Tailscale.")}
-    ${!r.running ? '<p class="muted">Remote play isn\'t running on the PC. Start it there in the Remote tab (or turn on '
+    + "FM27's shortcuts, the analyst's picks, and an alert when FM27 needs you. Remote play has an Analyst button to "
+    + "come back here.")}
+    ${!r.running ? '<p class="muted">Remote play is not running on the PC. Start it there in the Remote tab (or turn on '
       + '"Start with the analyst").</p>'
-      : `<div class="rplinks">${links.map((l, i) => `<a class="rplink${i ? " secondary" : ""}" href="${esc(l.url)}/#back=${encodeURIComponent(location.origin)}">
-          <b>${i ? "Open" : "Open remote play"}</b><span>${esc(l.what)}</span></a>`).join("")}</div>
-        <h3 style="margin-top:18px">First time on this phone?</h3>
-        <button id="rpPairMe">Pair this phone</button>
-        <p class="muted small">Pairs this phone with remote play and opens it, nothing to type. Remote play has an
-        <b>Analyst</b> button to come back here. For notifications on an iPhone, add remote play to the Home Screen
-        and pair it from there (on the PC: Remote tab › Show pairing code).</p>`}
+      : `${usable.length ? `<div class="rplinks">${usable.map((n, i) => `<button class="rplink${i ? " secondary" : ""}"
+          data-rpopen="${n}"><b>${NET[n].label}</b><span>${NET[n].what}</span></button>`).join("")}</div>`
+        : !off.length ? '<p class="muted">The PC has no address for remote play on these networks right now.</p>' : ""}
+      ${off.length ? `<p class="muted small">${usable.length ? "Also possible" : "Remote play isn't turned on for this phone"}:
+        ${off.map((n) => ({ wifi: "on home Wi-Fi", tailscale: "over Tailscale" })[n]).join(" and ")}. On the PC, open <b>Settings › Phone</b> and turn
+        it on for ${esc(r.name || "this phone")}.</p>` : ""}
+      ${nets.tailscale?.allowed && !nets.tailscale?.available ? '<p class="muted small">Tailscale is not set up on the '
+        + 'PC (see the guide: Remote play › Phone notifications).</p>' : ""}`}
   </div>`;
-  $("#rpPairMe")?.addEventListener("click", async (e) => {
-    e.target.disabled = true;
+  view.querySelectorAll("[data-rpopen]").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
     try {
-      const p = await api("/api/remoteplay/pair", { method: "POST" });
+      const p = await api(`/api/remoteplay/pair/${b.dataset.rpopen}`, { method: "POST" });
       location.href = `${p.url}&back=${encodeURIComponent(location.origin)}`;
-    } catch (err) { e.target.disabled = false; toast(err.message, true); }
-  });
+    } catch (err) { b.disabled = false; toast(err.message, true); }
+  }));
 }
 
 // ------------------------------------------------------------------ router

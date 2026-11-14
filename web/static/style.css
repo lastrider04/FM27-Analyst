@@ -425,3 +425,6 @@ ul.plain { list-style: none; padding: 0; margin: 6px 0 12px; display: flex; flex
           background: var(--accent); color: var(--accent-ink); }
 .rplink span { font-size: 13px; opacity: .85; }
 .rplink.secondary { background: transparent; border: 1px solid var(--line); color: inherit; }
+button.rplink { align-items: flex-start; text-align: left; font: inherit; width: 100%; cursor: pointer; }
+td.rpnets { display: flex; flex-direction: column; gap: 4px; }
+td.rpnets .switch { margin: 0; }

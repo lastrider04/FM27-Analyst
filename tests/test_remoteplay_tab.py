@@ -19,7 +19,7 @@ def rp(monkeypatch):
         calls.append((method, path))
         if path == "/local/info":
             return INFO
-        if path == "/local/pair-code":
+        if path.startswith("/local/pair-code"):
             return {"code": "ABCD2345"}
         if path.startswith("/local/revoke/"):
             return {"ok": path.endswith("/abc")}
@@ -53,19 +53,56 @@ def test_start_with_the_analyst_is_saved(rp):
     assert app_config.load_config()["remote_play"]["enabled"] is True
 
 
-def test_phone_companion_only_reads_where_to_go(rp):
+def test_phone_companion_only_reads_where_to_go(rp, phone):
     assert remote.allowed("GET", "/api/remoteplay")
     for method, path in (("PUT", "/api/remoteplay"), ("POST", "/api/remoteplay/code"),
-                         ("DELETE", "/api/remoteplay/devices/abc")):
+                         ("DELETE", "/api/remoteplay/devices/abc"), ("PUT", "/api/remote/devices/abc")):
         assert not remote.allowed(method, path), (method, path)
-    phone = web_app._rp_status(phone=True)
-    assert phone == {"running": True, "https": INFO["https"], "lan": INFO["lan"]}       # no phones list, no settings
+    me = web_app._rp_status(phone={"id": phone})
+    assert me == {"running": True, "name": "Pixel",
+                  "networks": {"wifi": {"allowed": False, "available": True},
+                               "tailscale": {"allowed": False, "available": True}}}   # nothing about other phones
 
 
-def test_phone_app_pairs_itself_in_one_tap(rp):
-    assert remote.allowed("POST", "/api/remoteplay/pair")
-    p = TestClient(web_app.app).post("/api/remoteplay/pair").json()
-    assert p["url"] == "https://pc.tail1.ts.net/#pair=ABCD2345&name=Phone"
+@pytest.fixture
+def phone(tmp_path, monkeypatch):
+    import app_config
+    monkeypatch.setattr(app_config, "DATA", tmp_path)
+    remote.DEVICES.add("Pixel", "google")
+    return remote.DEVICES.listing()[0]["id"]
+
+
+def test_phone_app_opens_remote_play_only_where_allowed(rp, phone, monkeypatch):
+    class Req:
+        class state:
+            remote_device = {"id": phone}
+    assert remote.allowed("POST", "/api/remoteplay/pair/wifi") and remote.allowed("POST", "/api/remoteplay/pair/tailscale")
+    with pytest.raises(Exception) as e:
+        web_app.remoteplay_pair("wifi", Req)
+    assert e.value.status_code == 403
+    c = TestClient(web_app.app)
+    c.put(f"/api/remote/devices/{phone}", json={"rp_wifi": True})
+    assert remote.DEVICES.get(phone)["rp_wifi"] is True and not remote.DEVICES.get(phone).get("rp_tailscale")
+    assert web_app.remoteplay_pair("wifi", Req)["url"] == "http://192.168.1.5:8777/#pair=ABCD2345&name=Pixel"
+    assert ("GET", f"/local/pair-code?link={phone}") in rp
+    with pytest.raises(Exception):
+        web_app.remoteplay_pair("tailscale", Req)
+
+
+def test_remote_play_honours_the_phone_app_switches(phone, monkeypatch):
+    from remote import auth
+    linked = {"id": "rp1", "name": "Pixel", "link": phone}
+    monkeypatch.setattr(auth.DEVICES, "find", lambda token: dict(linked))
+    assert auth.network("100.95.1.2") == "tailscale" and auth.network("192.168.1.9") == "wifi"
+    dev, why = auth.device_for({"fm_remote": "t"}, "192.168.1.9", lan=True)
+    assert dev is None and "home Wi-Fi is off" in why
+    remote.DEVICES.update(phone, rp_wifi=True)
+    assert auth.device_for({"fm_remote": "t"}, "192.168.1.9", lan=True)[0]["id"] == "rp1"
+    assert "Tailscale is off" in auth.device_for({"fm_remote": "t"}, "100.95.1.2", lan=True)[1]
+    remote.DEVICES.revoke(phone)
+    assert "removed" in auth.device_for({"fm_remote": "t"}, "192.168.1.9", lan=True)[1]
+    linked.pop("link")                                    # paired with a code from the PC: no per-network limit
+    assert auth.device_for({"fm_remote": "t"}, "100.95.1.2", lan=True)[0]["id"] == "rp1"
 
 
 def test_remote_play_knows_where_the_analyst_is(monkeypatch):

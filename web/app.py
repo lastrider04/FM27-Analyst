@@ -1151,6 +1151,20 @@ def remote_pair():
     return {"url": f"{_remote_base(r)}/pair#{code}", "code": f"{code[:4]}-{code[4:]}", "expires_in": remote.PAIR_TTL}
 
 
+class DeviceRemotePlay(BaseModel):
+    rp_wifi: bool | None = None          # this phone may use remote play on home Wi-Fi
+    rp_tailscale: bool | None = None     # ... and over Tailscale
+
+
+@app.put("/api/remote/devices/{dev_id}")
+def remote_device_put(dev_id: str, s: DeviceRemotePlay):
+    """Settings › Phone: let a paired phone use remote play (per network). PC only: not in the phone listener's ALLOW."""
+    fields = {k: v for k, v in s.model_dump().items() if v is not None}
+    if not remote.DEVICES.update(dev_id, **fields):
+        raise HTTPException(404, "no such device")
+    return {"devices": remote.DEVICES.listing()}
+
+
 @app.delete("/api/remote/devices/{dev_id}")
 def remote_revoke(dev_id: str):
     if not remote.DEVICES.revoke(dev_id):
@@ -1194,10 +1208,20 @@ def _rp_installed() -> str | None:
 
 @app.get("/api/remoteplay")
 def remoteplay_get(request: Request):
-    return _rp_status(phone=getattr(request.state, "remote_device", None) is not None)
+    return _rp_status(phone=getattr(request.state, "remote_device", None))
 
 
-def _rp_status(phone: bool = False) -> dict:
+def _rp_addresses(info: dict) -> dict:
+    """Where remote play is, per network: Tailscale (the https address, else its 100.x address) and home Wi-Fi."""
+    from remote.auth import network
+    from urllib.parse import urlparse
+    lan = info.get("lan") or []
+    ts = info.get("https") or next((u for u in lan if network(urlparse(u).hostname or "") == "tailscale"), None)
+    wifi = next((u for u in lan if network(urlparse(u).hostname or "") == "wifi"), None)
+    return {"wifi": wifi, "tailscale": ts}
+
+
+def _rp_status(phone: dict | None = None) -> dict:
     from remote import launcher
     port = _rp_port()
     running = launcher.running(port)
@@ -1207,8 +1231,12 @@ def _rp_status(phone: bool = False) -> dict:
             info = _rp_local("/local/info")
         except HTTPException:
             running = False
-    if phone:                                                            # a phone: only where to go
-        return {"running": running, "https": info.get("https"), "lan": info.get("lan", [])}
+    if phone is not None:                         # a phone: which networks it may use, nothing about other phones
+        me = remote.DEVICES.get(phone.get("id", "")) or {}
+        where = _rp_addresses(info)
+        return {"running": running, "name": me.get("name"),
+                "networks": {n: {"allowed": bool(me.get(f"rp_{n}")), "available": bool(where[n])}
+                             for n in ("wifi", "tailscale")}}
     return {"running": running, "enabled": bool(app_config.load_config().get("remote_play", {}).get("enabled")),
             "port": port, "missing": _rp_installed(), **info}
 
@@ -1240,20 +1268,27 @@ def remoteplay_code():
     return {"code": f"{c[:4]}-{c[4:]}", "minutes": 10, "url": f"{base}/#pair={c}" if base else None}
 
 
-@app.post("/api/remoteplay/pair")
-def remoteplay_pair(request: Request):
-    """From the phone app (Remote > Pair this phone): a one-time code in a link that pairs this phone with remote play
-    in one tap. The phone is already paired with the analyst (sign-in plus code); remote play still only answers on
-    home Wi-Fi or Tailscale."""
+@app.post("/api/remoteplay/pair/{net}")
+def remoteplay_pair(net: str, request: Request):
+    """From the phone app (Remote > Open on home Wi-Fi / over Tailscale): a link to remote play on that network with a
+    one-time code that pairs this phone in one tap (unused if it's already paired there). Only for phones allowed
+    remote play on that network in Settings > Phone; the remote-play pairing stays tied to that permission."""
+    if net not in ("wifi", "tailscale"):
+        raise HTTPException(404, "no such network")
     d = getattr(request.state, "remote_device", None)
-    c = _rp_local("/local/pair-code")["code"]
-    info = _rp_local("/local/info")
-    base = info.get("https") or (info.get("lan") or [None])[0]
+    me = remote.DEVICES.get(d["id"]) if d else None
+    if not me:
+        raise HTTPException(400, "This is for phones paired with the phone app.")
+    if not me.get(f"rp_{net}"):
+        raise HTTPException(403, f"Remote play over {'Tailscale' if net == 'tailscale' else 'home Wi-Fi'} isn't on "
+                                 "for this phone. Turn it on in the analyst on the PC: Settings › Phone.")
+    base = _rp_addresses(_rp_local("/local/info"))[net]
     if not base:
-        raise HTTPException(503, "Remote play has no address to open.")
+        raise HTTPException(503, "Remote play has no " + ("Tailscale" if net == "tailscale" else "home Wi-Fi")
+                                 + " address on the PC.")
     from urllib.parse import quote
-    name = quote(((d or {}).get("name") or "Phone")[:40], safe="")
-    return {"url": f"{base}/#pair={c}&name={name}"}
+    c = _rp_local(f"/local/pair-code?link={quote(me['id'])}")["code"]
+    return {"url": f"{base}/#pair={c}&name={quote(me['name'][:40], safe='')}"}
 
 
 @app.delete("/api/remoteplay/devices/{dev_id}")

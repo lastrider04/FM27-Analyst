@@ -54,7 +54,7 @@ ALLOW = [
     ({"GET", "HEAD"}, re.compile(r"/|/api/(status|overview|squad|players|compare|per90|form|development|fixtures"
                                  r"|capture|auto|health|chats|llm/status|chat/context|remoteplay)")),
     ({"GET", "HEAD"}, re.compile(r"/api/(match|similar|player|chats)/[^/]+")),
-    ({"POST"}, re.compile(r"/api/(capture|chat|remoteplay/pair)")),
+    ({"POST"}, re.compile(r"/api/(capture|chat|remoteplay/pair/(wifi|tailscale))")),
     ({"PUT"}, re.compile(r"/api/auto")),
     ({"DELETE"}, re.compile(r"/api/chats/[^/]+")),
 ]
@@ -103,15 +103,30 @@ class Devices:
         cutoff = time.time() - DEVICE_DAYS * 86400
         return [d for d in devs if d.get("last_seen", 0) >= cutoff]
 
-    def add(self, name: str, method: str) -> str:
+    def add(self, name: str, method: str, **extra) -> str:
         token = secrets.token_urlsafe(32)
         now = time.time()
         with self.lock:
             devs = self._live(self._load())
             devs.append({"id": secrets.token_hex(6), "name": name, "method": method, "created": now,
-                         "last_seen": now, "hash": _hash(token)})
+                         "last_seen": now, **extra, "hash": _hash(token)})
             self._save(devs)
         return token
+
+    def get(self, dev_id: str) -> dict | None:
+        """A live device by id (without its hash), or None."""
+        return next((d for d in self.listing() if d["id"] == dev_id), None)
+
+    def update(self, dev_id: str, **fields) -> bool:
+        """Set fields on a device (e.g. which networks it may use remote play on)."""
+        with self.lock:
+            devs = self._load()
+            for d in devs:
+                if d["id"] == dev_id:
+                    d.update({k: v for k, v in fields.items() if k not in ("id", "hash")})
+                    self._save(devs)
+                    return True
+        return False
 
     def find(self, token: str | None) -> dict | None:
         if not token or len(token) > 100:

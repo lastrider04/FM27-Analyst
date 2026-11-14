@@ -44,18 +44,20 @@ Remote play runs as its own background program (port 8777), so a problem in it c
 is `data\remote.log`.
 
 ## Pairing a phone
-**From the phone app** (easiest, if the phone is already paired with the [phone app](phone.md)): open its **Remote**
-tab and tap **Pair this phone**. Remote play opens already paired, named after the phone.
+**Phones already set up with the [phone app](phone.md)** don't need to pair. On the PC, open **Settings › Phone** and,
+next to the phone, turn on **Remote play on home Wi-Fi**, **Remote play over Tailscale**, or both. On the phone, the
+phone app's **Remote** tab then has **On home Wi-Fi** and **Over Tailscale** buttons that open remote play, already
+paired. Turning a switch off cuts that phone off on that network within seconds, and so does revoking the phone.
 
-**From the PC:** **Remote tab › Show pairing code**. On the phone, scan the QR code with the camera. That opens remote
-play with the code already filled in. Name the phone and tap **Pair**. Or open the address shown and type the code.
+**Any other phone:** on the PC, **Remote tab › Show pairing code**. Scan the QR code with the phone's camera. That
+opens remote play with the code filled in. Name the phone and tap **Pair**. Or open the address shown and type the
+code. A phone paired this way can use every network remote play is on.
 
 - A code works **once**, for **10 minutes**.
 - Each address pairs separately (the Wi-Fi address, the https address), and so does an iPhone's Home Screen app.
 - **Paired phones** in the Remote tab lists every phone and whether its notifications are on. **Unpair** cuts a phone
   off within seconds.
-- Remote play keeps its own list of paired phones. Only a phone already paired with the phone app (sign-in plus
-  code) can pair itself from there, and remote play still only answers on your home Wi-Fi or Tailscale.
+- Either way, remote play only answers on your home Wi-Fi or Tailscale, never from the internet.
 
 ## On the phone
 **The picture.** Tap to click. Pinch to zoom, drag with two fingers to pan, and double-tap to zoom in or back to the

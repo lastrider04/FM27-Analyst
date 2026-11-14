@@ -320,6 +320,7 @@ function updateVideoButton() {
 }
 
 function onStatus(s) {
+  if (/[#&]pair=/.test(location.hash)) history.replaceState(null, "", location.pathname);   // already paired here
   if ("https" in s) httpsUrl = s.https;
   if ("analyst" in s) setAnalystLink(s.analyst);
   if (s.w && s.h && (s.w !== fw || s.h !== fh)) { fw = s.w; fh = s.h; fit(); }
