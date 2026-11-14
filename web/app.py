@@ -1240,6 +1240,22 @@ def remoteplay_code():
     return {"code": f"{c[:4]}-{c[4:]}", "minutes": 10, "url": f"{base}/#pair={c}" if base else None}
 
 
+@app.post("/api/remoteplay/pair")
+def remoteplay_pair(request: Request):
+    """From the phone app (Remote > Pair this phone): a one-time code in a link that pairs this phone with remote play
+    in one tap. The phone is already paired with the analyst (sign-in plus code); remote play still only answers on
+    home Wi-Fi or Tailscale."""
+    d = getattr(request.state, "remote_device", None)
+    c = _rp_local("/local/pair-code")["code"]
+    info = _rp_local("/local/info")
+    base = info.get("https") or (info.get("lan") or [None])[0]
+    if not base:
+        raise HTTPException(503, "Remote play has no address to open.")
+    from urllib.parse import quote
+    name = quote(((d or {}).get("name") or "Phone")[:40], safe="")
+    return {"url": f"{base}/#pair={c}&name={name}"}
+
+
 @app.delete("/api/remoteplay/devices/{dev_id}")
 def remoteplay_revoke(dev_id: str):
     if not _rp_local(f"/local/revoke/{dev_id}", "POST").get("ok"):

@@ -321,6 +321,7 @@ function updateVideoButton() {
 
 function onStatus(s) {
   if ("https" in s) httpsUrl = s.https;
+  if ("analyst" in s) setAnalystLink(s.analyst);
   if (s.w && s.h && (s.w !== fw || s.h !== fh)) { fw = s.w; fh = s.h; fit(); }
   if (s.msg) status(s.msg, true);
   else if (!s.fm) status("FM27 isn't running on the PC", true, true);
@@ -671,6 +672,7 @@ const ICONS = {
   scroll: '<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>',
   back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
   picks: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10l1.5 1.5 3-3M8.5 16l1.5 1.5 3-3"/>',
+  analyst: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   belloff: '<path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l1.5 2H8"/><path d="M10 20a2 2 0 0 0 4 0M3 3l18 18"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/>',
@@ -1159,17 +1161,44 @@ kbd.addEventListener("keydown", (e) => {
   if (map[e.key]) { e.preventDefault(); send({ t: "key", k: map[e.key] }); }
 });
 
+// ------------------------------------------------------------------ back to the analyst
+// The Analyst button (tool bar, and the App panel) opens the analyst's phone app. Its address comes from the PC
+// (the phone app's public address), or from the link the analyst opened us with, or its port on this same host.
+const ANALYST_KEY = "fm27remote.analyst";
+function safeUrl(u) {
+  try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.origin : null; } catch { return null; }
+}
+function setAnalystLink(a) {
+  let url = a?.url ? safeUrl(a.url) : null;
+  if (!url) { try { url = safeUrl(localStorage.getItem(ANALYST_KEY) || ""); } catch { /* storage blocked */ } }
+  if (!url && a?.port) url = `http://${location.hostname}:${a.port}`;
+  for (const el of [$("b-analyst"), $("picks-analyst")]) el.hidden = !url;
+  $("picks-analyst").href = url || "#";
+  $("b-analyst").onclick = url ? () => { location.href = url; } : null;
+  markOverflow($("bar"));
+}
+(function rememberAnalyst() {                       // the analyst's "Pair this phone" link says where it is
+  const back = /[#&]back=([^&]+)/.exec(location.hash);
+  const url = back && safeUrl(decodeURIComponent(back[1]));
+  if (url) { try { localStorage.setItem(ANALYST_KEY, url); } catch { /* storage blocked */ } }
+  setAnalystLink(null);
+})();
+
 // ------------------------------------------------------------------ pairing
 function showPair() {
   statusEl.classList.add("hide");
+  document.body.classList.add("pairing");                          // no tool bars until paired
   $("pair").hidden = false;
   const fromQr = /[#&]pair=([A-Za-z0-9]{8})/.exec(location.hash);    // the analyst's QR code carries the code
+  const name = /[#&]name=([^&]+)/.exec(location.hash);              // the analyst's phone app also names the phone
   if (fromQr) {
     $("pair-code").value = fromQr[1].toUpperCase().replace(/^(.{4})/, "$1-");
+    if (name) $("pair-name").value = decodeURIComponent(name[1]).slice(0, 40);
     history.replaceState(null, "", location.pathname);              // the code works once: don't keep it around
   }
   $("pair-name").value ||= /iPhone/.test(navigator.userAgent) ? "iPhone" : /Pixel 9 Pro/.test(navigator.userAgent)
     ? "Pixel 9 Pro" : /Android/.test(navigator.userAgent) ? "Android phone" : "";
+  if (fromQr && name) $("pair").requestSubmit();                   // from the analyst's Pair button: nothing to type
 }
 $("pair").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1184,6 +1213,7 @@ $("pair").addEventListener("submit", async (e) => {
     const body = await r.json().catch(() => ({}));
     if (!r.ok) { msg.textContent = body.detail || `Pairing failed (${r.status})`; return; }
     $("pair").hidden = true;
+    document.body.classList.remove("pairing");
     denied = false;
     status(`Paired as ${body.name}`);
     connect();

@@ -60,3 +60,20 @@ def test_phone_companion_only_reads_where_to_go(rp):
         assert not remote.allowed(method, path), (method, path)
     phone = web_app._rp_status(phone=True)
     assert phone == {"running": True, "https": INFO["https"], "lan": INFO["lan"]}       # no phones list, no settings
+
+
+def test_phone_app_pairs_itself_in_one_tap(rp):
+    assert remote.allowed("POST", "/api/remoteplay/pair")
+    p = TestClient(web_app.app).post("/api/remoteplay/pair").json()
+    assert p["url"] == "https://pc.tail1.ts.net/#pair=ABCD2345&name=Phone"
+
+
+def test_remote_play_knows_where_the_analyst_is(monkeypatch):
+    import app_config
+    from remote.server import Hub
+    cfg = app_config.load_config()
+    cfg["remote"].update(enabled=True, public_url="https://fm.example.com/", port=8776)
+    monkeypatch.setattr(app_config, "load_config", lambda: cfg)
+    assert Hub.analyst_link() == {"url": "https://fm.example.com", "port": 8776}
+    cfg["remote"]["enabled"] = False
+    assert Hub.analyst_link() is None

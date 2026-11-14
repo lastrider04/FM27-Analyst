@@ -152,7 +152,8 @@ body { display: flex; flex-direction: column; height: 100dvh; }
   #controls button { flex-basis: 30px; }
 }
 /* typing: the keyboard is up, so give the whole screen to FM27 */
-body.typing #controls { display: none; }
+body.typing #controls, body.pairing #controls { display: none; }
+#picks-analyst { color: var(--accent, #4ea1ff); text-decoration: none; font-size: 14px; padding: 6px 8px; white-space: nowrap; }
 #kbd-done {
   /* left edge, half way down: clear of FM27's top bar (its Continue button is top right) */
   position: absolute; left: 0; top: 40%; z-index: 5;

@@ -1572,11 +1572,21 @@ function remotePhone(r) {
     + "Wi-Fi or over Tailscale.")}
     ${!r.running ? '<p class="muted">Remote play isn\'t running on the PC. Start it there in the Remote tab (or turn on '
       + '"Start with the analyst").</p>'
-      : `<div class="rplinks">${links.map((l, i) => `<a class="rplink${i ? " secondary" : ""}" href="${esc(l.url)}">
+      : `<div class="rplinks">${links.map((l, i) => `<a class="rplink${i ? " secondary" : ""}" href="${esc(l.url)}/#back=${encodeURIComponent(location.origin)}">
           <b>${i ? "Open" : "Open remote play"}</b><span>${esc(l.what)}</span></a>`).join("")}</div>
-        <p class="muted small">First time on this phone? On the PC, open the Remote tab › Show pairing code and scan it.
-        For notifications on an iPhone, add remote play to the Home Screen and pair it from there.</p>`}
+        <h3 style="margin-top:18px">First time on this phone?</h3>
+        <button id="rpPairMe">Pair this phone</button>
+        <p class="muted small">Pairs this phone with remote play and opens it, nothing to type. Remote play has an
+        <b>Analyst</b> button to come back here. For notifications on an iPhone, add remote play to the Home Screen
+        and pair it from there (on the PC: Remote tab › Show pairing code).</p>`}
   </div>`;
+  $("#rpPairMe")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try {
+      const p = await api("/api/remoteplay/pair", { method: "POST" });
+      location.href = `${p.url}&back=${encodeURIComponent(location.origin)}`;
+    } catch (err) { e.target.disabled = false; toast(err.message, true); }
+  });
 }
 
 // ------------------------------------------------------------------ router

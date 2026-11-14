@@ -44,15 +44,18 @@ Remote play runs as its own background program (port 8777), so a problem in it c
 is `data\remote.log`.
 
 ## Pairing a phone
-On the PC: **Remote tab › Show pairing code**. On the phone, scan the QR code with the camera. That opens remote play
-with the code already filled in. Name the phone and tap **Pair**. Or open the address shown and type the code.
+**From the phone app** (easiest, if the phone is already paired with the [phone app](phone.md)): open its **Remote**
+tab and tap **Pair this phone**. Remote play opens already paired, named after the phone.
+
+**From the PC:** **Remote tab › Show pairing code**. On the phone, scan the QR code with the camera. That opens remote
+play with the code already filled in. Name the phone and tap **Pair**. Or open the address shown and type the code.
 
 - A code works **once**, for **10 minutes**.
 - Each address pairs separately (the Wi-Fi address, the https address), and so does an iPhone's Home Screen app.
 - **Paired phones** in the Remote tab lists every phone and whether its notifications are on. **Unpair** cuts a phone
   off within seconds.
-- Remote play pairs separately from the [phone app](phone.md) on purpose: controlling your PC is a bigger permission
-  than reading the dashboard. The phone app's **Remote** tab links to remote play's addresses.
+- Remote play keeps its own list of paired phones. Only a phone already paired with the phone app (sign-in plus
+  code) can pair itself from there, and remote play still only answers on your home Wi-Fi or Tailscale.
 
 ## On the phone
 **The picture.** Tap to click. Pinch to zoom, drag with two fingers to pan, and double-tap to zoom in or back to the
@@ -64,7 +67,7 @@ You can change the shortcuts in `data\remote_shortcuts.json`. Only single keys a
 
 **The tool bar** (swipe it for more): **Touch/Mouse** mode, **Keys** (the phone keyboard; the bars hide while it's up),
 **Right** (the next tap is a right-click), **Drag** (for moving players on the tactics pitch), **Scroll** (one finger
-turns the mouse wheel), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), and **Alerts**.
+turns the mouse wheel), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), **Analyst** and **Alerts**.
 
 **Video** steps through **Off → Low → Medium → High**: still pictures, then smooth video at 5, 10 or 16 Mbit/s. Medium
 suits most home Wi-Fi.
@@ -75,6 +78,9 @@ suits most home Wi-Fi.
 - **Fixtures:** the next ten matches and the last ten results.
 
 **Update** captures FM27 straight away. Tap **App** again or ✕ to close it.
+
+**Back to the analyst.** The **Analyst** button (in the tool bar, and at the top of the App panel) opens the phone app.
+Its **Remote** tab has **Open remote play** to come back.
 
 **Alerts.** While FM27 is busy (processing days, preparing a match), **Continue** pulses. When it stops and needs
 you, the phone chimes and buzzes (iPhones can't buzz from a web page) and shows FM27's own button: "Continue",

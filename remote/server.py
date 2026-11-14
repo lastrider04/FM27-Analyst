@@ -112,11 +112,24 @@ class Hub:
         else:
             self.banner.hide()
 
+    @staticmethod
+    def analyst_link() -> dict | None:
+        """Where the analyst's phone app is (its public address, or its port on this PC), for the Analyst button."""
+        try:
+            import app_config
+            cfg = app_config.load_config().get("remote", {})
+        except Exception:
+            return None
+        if not cfg.get("enabled"):
+            return None
+        return {"url": (cfg.get("public_url") or "").rstrip("/") or None, "port": int(cfg.get("port") or 8776)}
+
     def status(self, msg: str = "") -> dict:
         f = self.capturer.frame
         return {"t": "status", "fm": window.find() is not None, "capture": self.capturer.status,
                 "w": f.width if f else None, "h": f.height if f else None,
-                "paused": self.controller.paused, "https": self.https_url, "msg": msg}
+                "paused": self.controller.paused, "https": self.https_url,
+                "analyst": self.analyst_link(), "msg": msg}
 
     def broadcast_status(self, msg: str = "") -> None:
         if not self.loop:

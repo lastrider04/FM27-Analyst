@@ -29,6 +29,7 @@
     <header>
       <nav id="picks-tabs"><button type="button" data-tab="next">Next match</button><button type="button"
         data-tab="squad">Squad</button><button type="button" data-tab="fixtures">Fixtures</button></nav>
+      <a id="picks-analyst" hidden title="Open the analyst app">Analyst ↗</a>
       <button id="picks-update" type="button" title="Have the analyst capture FM27 now">Update</button>
       <button id="picks-close" type="button" aria-label="Close">✕</button>
     </header>
@@ -37,7 +38,8 @@
   </aside>
   <form id="pair" hidden autocomplete="off">
     <h1>Pair this phone</h1>
-    <p>On the PC, get a one-time code:<br><code>python -m remote code</code></p>
+    <p>Easiest: open <b>FM27 Analyst</b> on this phone, go to <b>Remote</b> and tap <b>Pair this phone</b>.</p>
+    <p>Or on the PC, open the analyst's <b>Remote</b> tab, tap <b>Show pairing code</b> and scan it, or type it here:</p>
     <label>Code<input id="pair-code" inputmode="text" autocapitalize="characters" maxlength="9" placeholder="ABCD-2345" required></label>
     <label>Name for this phone<input id="pair-name" maxlength="40" placeholder="e.g. Pixel 9 Pro"></label>
     <button type="submit">Pair</button>
@@ -56,6 +58,7 @@
   <button id="b-video" data-icon="video" class="toggle" title="Smooth video (WebRTC) instead of pictures"><span>Video</span></button>
   <button id="b-fit" data-icon="fit" title="Fit the whole screen"><span>Fit</span></button>
   <button id="b-full" data-icon="fullscreen" title="Full screen: hide the browser's address bar" hidden><span>Full</span></button>
+  <button id="b-analyst" data-icon="analyst" title="Back to the analyst app" hidden><span>Analyst</span></button>
   <button id="b-alerts" data-icon="bell" title="Chime and buzz when FM27 stops processing and needs you"><span>Alerts</span></button>
 </nav>
 </div>
