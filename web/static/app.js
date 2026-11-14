@@ -898,6 +898,7 @@ let settingsSection = (() => { try { return localStorage.getItem("settingsSectio
 async function settingsPage() {
   if (REMOTE) return devicePage();
   const [s, a, gpt, sv] = await Promise.all([api("/api/settings"), api("/api/auto"), api("/api/llm/status"), api("/api/snapshots")]);
+  window.coachCheck?.(gpt);              // show or hide "Ask the coach" as the AI coach is set up or removed
   const useGpt = s.llm_provider === "chatgpt";
   const put0 = (url, body) => api(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const put = (body) => put0("/api/settings", body);

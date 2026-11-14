@@ -190,7 +190,19 @@
     if (!msgs.length && convId) await loadConv(convId);      // reopen the last conversation, even after a restart
     render(); $c("#coachInput").focus();
   }
-  function close() { $c("#coach").classList.add("hidden"); $c("#coachBtn").classList.remove("hidden"); }
+  function close() { $c("#coach").classList.add("hidden"); $c("#coachBtn").classList.toggle("hidden", !ready); }
+
+  // "Ask the coach" only shows once the AI coach is set up (Settings › AI coach): a provider, a model and a key or
+  // ChatGPT sign-in. Checked on load, when the page changes, when the window comes back, and by Settings after a save.
+  let ready = false;
+  async function check(status) {
+    try { ready = !!(status || await fetch("/api/llm/status").then((r) => r.json())).ready; } catch { return; }
+    if ($c("#coach").classList.contains("hidden")) $c("#coachBtn").classList.toggle("hidden", !ready);
+  }
+  window.coachCheck = check;
+  check();
+  addEventListener("hashchange", () => check());
+  addEventListener("focus", () => check());
 
   $c("#coachBtn").addEventListener("click", open);
   $c("#coachClose").addEventListener("click", close);

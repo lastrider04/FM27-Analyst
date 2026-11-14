@@ -923,9 +923,23 @@ const TEAM_TABS = {
   squad: { url: "/api/analyst/squad", render: (d) => { squadData = d; return renderSquad(d); } },
   fixtures: { url: "/api/analyst/fixtures", render: renderFixtures },
 };
+// "Ask the coach" only shows when the analyst's AI coach is set up (its Settings › AI coach)
+async function checkCoach() {
+  try {
+    const r = await fetch("/api/coach", { cache: "no-store" });
+    if (r.ok) { const d = await r.json(); coachReady = { ready: !!d.ready, label: d.label }; }
+    else coachReady = { ready: false, label: "" };
+  } catch { /* offline: keep what we knew */ }
+  $("picks-coach").hidden = teamTab === "coach" || !coachReady?.ready;
+  return !!coachReady?.ready;
+}
 async function loadPicks() {
-  if (teamTab === "coach") { showCoach(); return; }
-  $("coach-form").hidden = true; $("picks-coach").hidden = false;
+  if (teamTab === "coach") {
+    if (await checkCoach()) { showCoach(); return; }
+    teamTab = "next";                                  // the coach was turned off since: back to the lists
+  }
+  $("coach-form").hidden = true; $("picks-coach").hidden = !coachReady?.ready;
+  checkCoach();
   const tab = TEAM_TABS[teamTab] ? teamTab : (teamTab = "next"), body = $("picks-body");
   for (const b of document.querySelectorAll("#picks-tabs button")) b.classList.toggle("on", b.dataset.tab === tab);
   body.innerHTML = '<p class="empty">Loading…</p>';
