@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1013">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FM27 Remote">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="icon" href="/static/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<title>FM27 Remote</title>
+<link rel="stylesheet" href="/static/remote.css">
+</head>
+<body>
+<main id="stage">
+  <canvas id="screen" aria-label="FM27 screen"></canvas>
+  <canvas id="minimap" hidden aria-label="Where you are on the screen; tap to jump"></canvas>
+  <canvas id="loupe" hidden aria-hidden="true"></canvas>
+  <div id="status" role="status">Connecting…</div>
+  <div id="zoomlevel" hidden></div>
+  <button id="fm-alert" type="button" hidden aria-live="assertive">
+    <img id="fm-alert-img" alt=""><span><b>FM27 needs you</b><small>Tap to dismiss</small></span>
+  </button>
+  <button id="kbd-done" type="button" title="Hide the keyboard" hidden>Done</button>
+  <aside id="picks" hidden aria-label="App: next match, squad and fixtures from the analyst">
+    <header>
+      <nav id="picks-tabs"><button type="button" data-tab="next">Next match</button><button type="button"
+        data-tab="squad">Squad</button><button type="button" data-tab="fixtures">Fixtures</button></nav>
+      <button id="picks-update" type="button" title="Have the analyst capture FM27 now">Update</button>
+      <button id="picks-close" type="button" aria-label="Close">✕</button>
+    </header>
+    <p id="picks-asof"></p>
+    <div id="picks-body"></div>
+  </aside>
+  <form id="pair" hidden autocomplete="off">
+    <h1>Pair this phone</h1>
+    <p>On the PC, get a one-time code:<br><code>python -m remote code</code></p>
+    <label>Code<input id="pair-code" inputmode="text" autocapitalize="characters" maxlength="9" placeholder="ABCD-2345" required></label>
+    <label>Name for this phone<input id="pair-name" maxlength="40" placeholder="e.g. Pixel 9 Pro"></label>
+    <button type="submit">Pair</button>
+    <p id="pair-msg" role="alert"></p>
+  </form>
+</main>
+<div id="controls">
+<nav id="shortcuts" aria-label="FM27 shortcuts"></nav>
+<nav id="bar" aria-label="Remote controls">
+  <button id="b-mode" data-icon="touch" title="Touch: tap where you want. Mouse: move a cursor, tap to click"><span>Touch</span></button>
+  <button id="b-keys" data-icon="keyboard" title="Keyboard"><span>Keys</span></button>
+  <button id="b-right" data-icon="right" class="toggle" title="Next tap is a right-click"><span>Right</span></button>
+  <button id="b-drag" data-icon="drag" class="toggle" title="One finger drags with the mouse button held"><span>Drag</span></button>
+  <button id="b-scroll" data-icon="scroll" class="toggle" title="One finger scrolls like a mouse wheel"><span>Scroll</span></button>
+  <button id="b-esc" data-icon="back" title="Escape key"><span>Esc</span></button>
+  <button id="b-video" data-icon="video" class="toggle" title="Smooth video (WebRTC) instead of pictures"><span>Video</span></button>
+  <button id="b-fit" data-icon="fit" title="Fit the whole screen"><span>Fit</span></button>
+  <button id="b-full" data-icon="fullscreen" title="Full screen: hide the browser's address bar" hidden><span>Full</span></button>
+  <button id="b-alerts" data-icon="bell" title="Chime and buzz when FM27 stops processing and needs you"><span>Alerts</span></button>
+</nav>
+</div>
+<input id="kbd" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+       enterkeyhint="send" aria-label="Type into FM27">
+<script src="/static/remote.js"></script>
+</body>
+</html>

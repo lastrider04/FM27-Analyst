@@ -1467,9 +1467,121 @@ function fillContext(s) {
   $("#ctxDate").title = g ? "Game date of the last capture" : "";
 }
 
+// ------------------------------------------------------------------ remote play (the Remote tab)
+// Control FM27 from a phone: a live picture of the game with touch controls, alerts when FM27 needs you.
+// It runs as its own process (remote/). On this PC the tab manages it; on a phone it opens it. Remote play itself is
+// only reachable on home Wi-Fi or Tailscale, never through the public proxy, so a phone opens it at its own address.
+async function remotePage() {
+  const r = await api("/api/remoteplay");
+  if (REMOTE) return remotePhone(r);
+  const put = async (body, msg) => {
+    try {
+      await api("/api/remoteplay", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      toast(msg);
+    } catch (err) { toast(err.message, true); }
+    remotePage();
+  };
+  const urls = [r.https && `<li><a href="${esc(r.https)}" target="_blank" rel="noopener">${esc(r.https)}</a>
+      <span class="muted small0">Tailscale, HTTPS: phone notifications work here</span></li>`,
+    ...(r.lan || []).map((u) => `<li><code>${esc(u)}</code> <span class="muted small0">${u.includes("//100.") ? "Tailscale" : "home Wi-Fi"}</span></li>`)]
+    .filter(Boolean).join("");
+  view.innerHTML = `
+  <div class="card wide">${h2i("Remote play", "Play FM27 from your phone: a live picture of the game (smooth video from your "
+    + "graphics card) with touch controls, FM27's shortcuts, the analyst's picks, and an alert when FM27 stops and needs you. "
+    + "It sends taps and keys the same way you would at the PC and never touches game memory. Only phones you pair can "
+    + "connect, on your home Wi-Fi or over Tailscale; it's never reachable from the internet.")}
+    <div class="muted small">${r.running ? '<span class="up">●</span> Running' + (r.connected?.length
+      ? ` · connected: ${esc(r.connected.join(", "))}` : "") + (r.paused ? " · control paused (Ctrl+Alt+End)" : "")
+      : r.missing ? `<span class="down">✗ Needs a few extra packages: <code>${esc(r.missing)}</code></span>` : "Not running"}</div>
+    <div style="margin:12px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      ${r.running ? '<button id="rpStop" class="secondary">Stop</button>' : `<button id="rpStart" ${r.missing ? "disabled" : ""}>Start</button>`}
+      <label class="switch"><input type="checkbox" id="rpAuto" ${r.enabled ? "checked" : ""}><span class="knob"></span>
+        <span>Start with the analyst</span></label></div>
+    ${r.running ? `<h3>Open on the phone</h3><ul class="plain">${urls || "<li class='muted'>No network address found</li>"}</ul>` : ""}
+    <details class="setup"><summary>Phone notifications and Tailscale</summary><ol>
+      <li>Install <a href="https://tailscale.com/download" target="_blank" rel="noopener">Tailscale</a> on this PC and the
+        phone, signed in to the same account. In the Tailscale admin console, turn on <b>MagicDNS</b> and <b>HTTPS Certificates</b>
+        (DNS page). Remote play then also runs at <code>https://&lt;this-pc&gt;.&lt;tailnet&gt;.ts.net</code>; restart it after setting up.</li>
+      <li>Open that https address on the phone and pair it (below). It works away from home too, with Tailscale on.</li>
+      <li>Tap the bell (Alerts) and allow notifications. <b>iPhone:</b> add the page to the Home Screen first (Share ›
+        Add to Home Screen), open it from there and pair there: iPhones only allow notifications from Home Screen apps.</li>
+    </ol></details>
+  </div>
+
+  <div class="card wide">${h2i("Pair a phone", "Scan the QR code with the phone's camera (or open the address and type the code). "
+    + "The code works once, for 10 minutes. Remote play pairs separately from the phone companion, because controlling the PC "
+    + "is a bigger permission than reading the dashboard. Each address (Wi-Fi, https) and an iPhone's Home Screen app pair separately.")}
+    <button id="rpPair" ${r.running ? "" : "disabled"}>Show pairing code</button>
+    ${r.running ? "" : '<span class="muted small0">Start remote play first.</span>'}
+    <div id="rpPairOut" class="pairout hidden"><div id="rpQr"></div><div><div class="muted small0">Pairing code</div>
+      <div id="rpCode" class="paircode"></div><div class="muted small0">or open on the phone: <code id="rpUrl"></code></div>
+      <div id="rpLeft" class="muted small"></div></div></div>
+    <h3 style="margin-top:18px">Paired phones${info("A phone stays paired until you unpair it here or it isn't used for 180 days. "
+      + "Unpairing cuts it off within seconds.")}</h3>
+    ${r.devices?.length ? `<table class="saves"><tbody>${r.devices.map((d) => `<tr><td class="l"><b>${esc(d.name)}</b>
+      <br><span class="muted small0">${d.notifications ? "🔔 notifications on" : "no notifications"}</span></td>
+      <td class="l muted">last used ${ago(d.last_seen)}</td>
+      <td class="snapbtns"><button class="secondary danger" data-rprevoke="${esc(d.id)}">Unpair</button></td></tr>`).join("")}</tbody></table>`
+      : `<p class="muted">${r.running ? "No phones paired yet." : "Start remote play to see paired phones."}</p>`}
+  </div>`;
+
+  $("#rpStart")?.addEventListener("click", (e) => { e.target.disabled = true; e.target.textContent = "Starting…"; put({ running: true }, "Remote play started"); });
+  $("#rpStop")?.addEventListener("click", () => put({ running: false }, "Remote play stopped"));
+  $("#rpAuto").addEventListener("change", (e) => put({ enabled: e.target.checked },
+    e.target.checked ? "Remote play will start with the analyst" : "Remote play won't start with the analyst"));
+  view.querySelectorAll("[data-rprevoke]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("Unpair this phone? It's cut off straight away and will need a new code.")) return;
+    try { await api(`/api/remoteplay/devices/${b.dataset.rprevoke}`, { method: "DELETE" }); toast("Phone unpaired"); remotePage(); }
+    catch (err) { toast(err.message, true); }
+  }));
+  $("#rpPair")?.addEventListener("click", async () => {
+    try {
+      const p = await api("/api/remoteplay/code", { method: "POST" });
+      $("#rpCode").textContent = p.code;
+      $("#rpUrl").textContent = p.url ? p.url.split("#")[0] : "this PC's address";
+      if (p.url) {
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js");
+        $("#rpQr").innerHTML = "";
+        new QRCode($("#rpQr"), { text: p.url, width: 200, height: 200, colorDark: "#0d1117", colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M });
+      }
+      $("#rpPairOut").classList.remove("hidden");
+      const until = Date.now() + p.minutes * 60000;
+      clearInterval(remotePage.timer);
+      const tick = () => {
+        const out = $("#rpLeft");
+        const left = Math.max(0, Math.round((until - Date.now()) / 1000));
+        if (out) out.textContent = left ? `Works once, for ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`
+          : "Expired - make a new one";
+        if (!left || !out) clearInterval(remotePage.timer);
+      };
+      tick();
+      remotePage.timer = setInterval(tick, 1000);
+    } catch (err) { toast(err.message, true); }
+  });
+}
+
+// On a phone: where to open remote play. It opens at its own address (not inside this app), because it only runs on
+// home Wi-Fi or Tailscale and keeps its own pairing.
+function remotePhone(r) {
+  const links = [r.https && { url: r.https, what: "Over Tailscale (HTTPS): works away from home, with phone notifications" },
+    ...(r.lan || []).map((u) => ({ url: u, what: u.includes("//100.") ? "Over Tailscale" : "On your home Wi-Fi" }))].filter(Boolean);
+  view.innerHTML = `
+  <div class="card wide">${h2i("Remote play", "Play FM27 from this phone: a live picture of the game with touch controls, "
+    + "FM27's shortcuts, the analyst's picks, and an alert when FM27 needs you. It opens at its own address, on your home "
+    + "Wi-Fi or over Tailscale.")}
+    ${!r.running ? '<p class="muted">Remote play isn\'t running on the PC. Start it there in the Remote tab (or turn on '
+      + '"Start with the analyst").</p>'
+      : `<div class="rplinks">${links.map((l, i) => `<a class="rplink${i ? " secondary" : ""}" href="${esc(l.url)}">
+          <b>${i ? "Open" : "Open remote play"}</b><span>${esc(l.what)}</span></a>`).join("")}</div>
+        <p class="muted small">First time on this phone? On the PC, open the Remote tab › Show pairing code and scan it.
+        For notifications on an iPhone, add remote play to the Home Screen and pair it from there.</p>`}
+  </div>`;
+}
+
 // ------------------------------------------------------------------ router
 const routes = { overview, players: playersPage, squad: playersPage, development: developmentPage, per90: per90Page,
-  fixtures: fixturesPage, settings: settingsPage };
+  fixtures: fixturesPage, remote: remotePage, settings: settingsPage };
 async function route() {
   closeZoom();
   charts.splice(0).forEach((c) => c.destroy());

@@ -417,3 +417,11 @@ header { flex-wrap: nowrap; }
 header #lastCap { display: none; }
 @media (max-width: 1250px) { nav a { padding: 0 8px; font-size: 15px; } header { gap: 14px; } }
 @media (max-width: 1050px) { .brand .brandtext { display: none; } }
+
+/* Remote tab (remote play) */
+ul.plain { list-style: none; padding: 0; margin: 6px 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.rplinks { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.rplink { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 12px; text-decoration: none;
+          background: var(--accent); color: var(--accent-ink); }
+.rplink span { font-size: 13px; opacity: .85; }
+.rplink.secondary { background: transparent; border: 1px solid var(--line); color: inherit; }

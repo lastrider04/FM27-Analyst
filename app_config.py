@@ -20,6 +20,8 @@ DEFAULTS = {
     "remote": {"enabled": False, "host": "0.0.0.0", "port": 8776, "public_url": "", "proxy_ip": "",
                "google_client_id": "", "google_client_secret": "", "allowed_emails": [],
                "password_user": "", "password_hash": ""},
+    # remote play: control FM27 from a paired phone (its own process, see remote/); started with the analyst when on
+    "remote_play": {"enabled": False, "lan": True, "port": 8777},
 }
 SECRETS = [("llm", "api_key"), ("remote", "google_client_secret")]   # DPAPI-encrypted on disk as <name>_enc
 

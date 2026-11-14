@@ -1,0 +1,6 @@
+# Remote play (python -m remote), on top of the main requirements.txt
+windows-capture>=2.0
+pillow>=10
+websockets>=12
+aiortc>=1.9      # Phase 2 video (WebRTC); brings PyAV/FFmpeg with NVENC and QuickSync
+pywebpush>=2.0  # Phase 3 phone notifications (Web Push over Tailscale HTTPS)

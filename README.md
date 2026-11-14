@@ -43,6 +43,7 @@ The full walkthrough is in [Installation](docs/guide/installation.md) and [Getti
 | | ↳ [Cloudflare Tunnel](docs/guide/phone-cloudflare-tunnel.md) | Your own domain with no open ports. ⚠️ Untested suggestion. |
 | | ↳ [Signing in and pairing](docs/guide/phone-sign-in.md) | Password, Google sign-in (OAuth client setup), pairing codes, managing devices |
 | | ↳ [Windows Firewall](docs/guide/firewall.md) | Which rule you need for each method, adding, checking and removing it |
+| | **[Remote play](docs/guide/remote-play.md)** | Play FM27 from your phone: live picture and touch controls, smooth video, the analyst's picks, alerts and phone notifications when FM27 needs you |
 | 6 | **[Game snapshots and backups](docs/guide/game-snapshots.md)** | Separate histories per save or job, new games, backups, restoring, moving to a new PC |
 | 7 | **[Troubleshooting](docs/guide/troubleshooting.md)** | Install, capture, game-update banner, data, coach and phone problems |
 | 8 | **[Privacy, security and your data](docs/guide/privacy-and-data.md)** | What's read, what's sent where, the `data\` folder, how secrets are stored |

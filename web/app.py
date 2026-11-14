@@ -207,6 +207,17 @@ def _auto_paused() -> str | None:
 AUTO = AutoCapture(run_capture=CAPTURE.run, is_busy=lambda: CAPTURE.running, paused=_auto_paused)
 
 
+def _start_remote_play() -> None:
+    """Remote play runs as a separate process; starting it must never hold up or break the analyst."""
+    def run():
+        try:
+            from remote.launcher import start_with_analyst
+            start_with_analyst(app_config.load_config())
+        except Exception as e:
+            print("remote play didn't start:", e, flush=True)
+    threading.Thread(target=run, daemon=True, name="remote-play-start").start()
+
+
 @app.on_event("startup")
 def start_auto_capture():
     careers.activate()          # point DB_PATH / SNAPSHOT_DIR at the active game snapshot
@@ -214,6 +225,7 @@ def start_auto_capture():
     AUTO.start()
     HEALTH.maybe_check()
     REMOTE.apply()              # the phone listener, if turned on in Settings › Phone
+    _start_remote_play()        # remote play (its own process), if "remote_play": {"enabled": true}
     try:
         backup.daily(app_config.DB_PATH, careers.listing()["active"])
     except Exception as e:      # a failed backup must never stop the app
@@ -1144,6 +1156,95 @@ def remote_revoke(dev_id: str):
     if not remote.DEVICES.revoke(dev_id):
         raise HTTPException(404, "no such device")
     return {"devices": remote.DEVICES.listing()}
+
+
+# ---------------------------------------------------------------- remote play (the Remote tab)
+# Remote play (control FM27 from a phone) runs as its own process (remote/, port 8777 by default). This tab starts and
+# stops it, pairs phones and lists them, by calling its /local/* endpoints, which only answer this PC.
+# Through the phone listener only GET /api/remoteplay is allowed, and it returns just the addresses to open.
+class RemotePlaySettings(BaseModel):
+    enabled: bool | None = None      # start with the analyst
+    running: bool | None = None      # start or stop it now
+
+
+def _rp_port() -> int:
+    return int(app_config.load_config().get("remote_play", {}).get("port") or 8777)
+
+
+def _rp_local(path: str, method: str = "GET", timeout: float = 5.0) -> dict:
+    import json
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(f"http://127.0.0.1:{_rp_port()}{path}", method=method,
+                                 headers={"X-FM-Remote": "1"}, data=b"" if method == "POST" else None)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        raise HTTPException(503, f"Remote play isn't running ({e}).")
+
+
+def _rp_installed() -> str | None:
+    """None when remote play can run here, else what's missing (it needs a few extra packages)."""
+    import importlib.util
+    missing = [m for m in ("windows_capture", "aiortc", "pywebpush") if importlib.util.find_spec(m) is None]
+    return (".venv\Scripts\python -m pip install -r remote\requirements.txt (missing: " + ", ".join(missing) + ")"
+            if missing else None)
+
+
+@app.get("/api/remoteplay")
+def remoteplay_get(request: Request):
+    return _rp_status(phone=getattr(request.state, "remote_device", None) is not None)
+
+
+def _rp_status(phone: bool = False) -> dict:
+    from remote import launcher
+    port = _rp_port()
+    running = launcher.running(port)
+    info = {}
+    if running:
+        try:
+            info = _rp_local("/local/info")
+        except HTTPException:
+            running = False
+    if phone:                                                            # a phone: only where to go
+        return {"running": running, "https": info.get("https"), "lan": info.get("lan", [])}
+    return {"running": running, "enabled": bool(app_config.load_config().get("remote_play", {}).get("enabled")),
+            "port": port, "missing": _rp_installed(), **info}
+
+
+@app.put("/api/remoteplay")
+def remoteplay_put(s: RemotePlaySettings):
+    from remote import launcher
+    if s.enabled is not None:
+        cfg = app_config.load_config()
+        cfg.setdefault("remote_play", {})["enabled"] = s.enabled
+        app_config.save_config(cfg)
+    if s.running is True:
+        if _rp_installed():
+            raise HTTPException(400, "Remote play needs: " + _rp_installed())
+        if not launcher.start(lan=bool(app_config.load_config().get("remote_play", {}).get("lan", True)),
+                              port=_rp_port()):
+            raise HTTPException(500, "Remote play didn't start (see data/remote.log).")
+    elif s.running is False:
+        launcher.stop(_rp_port())
+    return _rp_status()
+
+
+@app.post("/api/remoteplay/code")
+def remoteplay_code():
+    """A one-time pairing code, and a link that fills it in (for the QR code)."""
+    c = _rp_local("/local/pair-code")["code"]
+    info = _rp_local("/local/info")
+    base = info.get("https") or (info.get("lan") or [None])[0]
+    return {"code": f"{c[:4]}-{c[4:]}", "minutes": 10, "url": f"{base}/#pair={c}" if base else None}
+
+
+@app.delete("/api/remoteplay/devices/{dev_id}")
+def remoteplay_revoke(dev_id: str):
+    if not _rp_local(f"/local/revoke/{dev_id}", "POST").get("ok"):
+        raise HTTPException(404, "no such phone")
+    return _rp_status()
 
 
 # ---------------------------------------------------------------- static UI

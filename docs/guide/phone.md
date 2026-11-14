@@ -19,6 +19,8 @@ FM27 Analyst also runs on your phone. It shows the same dashboard in a mobile la
 - [What the phone can and can't do](#what-the-phone-can-and-cant-do)
 - [Phone problems](#phone-problems)
 
+**To play FM27 itself from your phone** (not just read the dashboard), see [Remote play](remote-play.md).
+
 **Detailed pages:**
 - **Connection methods:** [Local network (IP and port)](phone-local-network.md) · [Tailscale](phone-tailscale.md) · [Reverse proxy (NGINX Proxy Manager, Caddy, nginx)](phone-reverse-proxy.md) · [Cloudflare Tunnel](phone-cloudflare-tunnel.md)
 - **Setup:** [Signing in and pairing](phone-sign-in.md) · [Windows Firewall](firewall.md)
