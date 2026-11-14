@@ -7,7 +7,7 @@
 - **over time:** attributes, CA and development;
 - **fitness:** condition, sharpness and injuries.
 
-From that history you get a dashboard, a recommended XI for the next match, and an AI assistant manager you can ask about your squad. It also works on your phone.
+From that history you get a dashboard, a recommended XI for the next match, and an AI assistant manager you can ask about your squad. It also works on your phone, and with **remote play** you can play FM27 from your phone too.
 
 ![Overview](docs/screenshots/01-overview.png)
 
@@ -16,7 +16,7 @@ From that history you get a dashboard, a recommended XI for the next match, and 
 - 🎨 **Your club's colours.** The dashboard takes its colours from your club in the game, in dark or light mode.
 - 💻 **Local.** Everything stays on your PC. Nothing leaves it unless you set up the AI coach, and then only your squad summary goes to the provider you choose.
 
-> **Beta.** FM27 is new and will be patched; FM27 Analyst is tested on one long career. Expect the odd rough edge, and please [report anything that looks wrong](https://github.com/lastrider04/FM27-Analyst/issues).
+> **New in 1.0.2 (out of beta):** play FM27 from your phone with [remote play](docs/updates.md#remote-play), the analyst and AI coach inside it, club crests and a new logo. See [what's new](docs/updates.md).
 >
 > Unofficial fan project, not affiliated with or endorsed by Sports Interactive or SEGA. For single-player saves only.
 
@@ -48,6 +48,7 @@ The full walkthrough is in [Installation](docs/guide/installation.md) and [Getti
 | 7 | **[Troubleshooting](docs/guide/troubleshooting.md)** | Install, capture, game-update banner, data, coach and phone problems |
 | 8 | **[Privacy, security and your data](docs/guide/privacy-and-data.md)** | What's read, what's sent where, the `data\` folder, how secrets are stored |
 | 9 | **[For developers](docs/guide/development.md)** | Running from source, tests, code layout, game builds, contributing |
+| | **[Updates](docs/updates.md)** | What's new in each version |
 
 ## Features at a glance
 
@@ -64,11 +65,15 @@ The full walkthrough is in [Installation](docs/guide/installation.md) and [Getti
 <td><a href="docs/guide/ai-coach.md"><img src="docs/screenshots/09-coach.png" alt="AI coach"></a><br><b>AI coach</b>: ask who to rest, rotate or develop. It answers from your data.</td>
 <td><a href="docs/guide/phone.md"><img src="docs/screenshots/20-phone-overview.png" width="180" alt="Phone app"> <img src="docs/screenshots/22-phone-coach.png" width="180" alt="Phone coach"></a><br><b>Phone app</b>: installable, works anywhere, with two-step pairing.</td>
 </tr>
+<tr>
+<td><a href="docs/guide/remote-play.md"><img src="docs/screenshots/27-remote-next.png" width="180" alt="Remote play, next match"> <img src="docs/screenshots/26-remote-squad.png" width="180" alt="Remote play, squad"></a><br><b>Remote play</b>: play FM27 from your phone, with the analyst and the coach over the game.</td>
+<td><a href="docs/guide/getting-started.md#appearance"><img src="docs/screenshots/02-players.png" alt="Light mode"></a><br><b>Your club's look</b>: club colours and crests, in dark or light mode.</td>
+</tr>
 </table>
 
 ## Requirements
 - **Windows** 10 or 11.[^platforms]
-- **Football Manager 27** (PC), the FM27 release of November 2026 (build `e6edaa71ecd9`). After a game patch it tries its existing offsets and carries on if they still fit; otherwise it tells you it needs an update; see [Troubleshooting](docs/guide/troubleshooting.md#fm27-has-been-updated-banner).
+- **Football Manager 27** (PC), tested on the release build (`e6edaa71ecd9`), the 11 November update (`f2bf83294162`) and the latest update (`df0c5c4104b2`). After a game patch it tries its existing offsets and carries on if they still fit; otherwise it tells you it needs an update; see [Troubleshooting](docs/guide/troubleshooting.md#fm27-has-been-updated-banner).
 - **Python** 3.10 or newer.
 - **Edge or Chrome** (Edge comes with Windows).
 

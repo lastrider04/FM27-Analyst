@@ -18,7 +18,7 @@ This page covers what you need, how to install FM27 Analyst, how to update it, a
 | | |
 |---|---|
 | **Windows** | Windows 10 or 11, 64-bit. |
-| **Football Manager 27** | The PC version. The reader matches the FM27 release of November 2026 (build `e6edaa71ecd9`). After a game patch, the app tells you if it doesn't recognise the new build; see [Troubleshooting](troubleshooting.md#fm27-has-been-updated-banner). |
+| **Football Manager 27** | The PC version. Tested on the release build (`e6edaa71ecd9`), the 11 November update (`f2bf83294162`) and the latest update (`df0c5c4104b2`). After a game patch it tries its existing offsets and carries on if they still fit; otherwise it tells you it needs an update; see [Troubleshooting](troubleshooting.md#fm27-has-been-updated-banner). |
 | **Python** | 3.10 or newer. It's free; see below. The app runs in its own private Python environment, so it won't affect anything else you use Python for. |
 | **A browser** | Microsoft Edge (built into Windows) or Google Chrome, used to show the app in its own window. |
 | **Disk space** | About 200 MB for the app and its packages, plus a few MB per season of history. |

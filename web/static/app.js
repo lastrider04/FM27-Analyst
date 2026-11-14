@@ -1023,6 +1023,8 @@ async function settingsPage() {
   <div ${pane("app")}>
   <div class="card wide">${h2i("App", "The app keeps running in the background after you close this window, so the hotkey "
     + "and auto-capture keep working. Double-click the FM27 Analyst shortcut to reopen the window. Quit stops it completely.")}
+    <p class="muted small0">FM27 Analyst ${esc(s.version || "")} ·
+      <a href="https://github.com/lastrider04/FM27-Analyst/blob/main/docs/updates.md" target="_blank" rel="noopener">What's new</a></p>
     <button id="quitBtn" class="secondary">Quit FM27 Analyst</button></div>
   </div>`;
   view.querySelectorAll("[data-secbtn]").forEach((b) => b.addEventListener("click", () => {

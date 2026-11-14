@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+VERSION = "1.0.2"          # see docs/updates.md
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
 DB_PATH = DATA / "fm_analyst.db"

@@ -746,7 +746,8 @@ def get_settings():
             "llm_model": cfg["llm"].get("model", ""), "llm_temperature": cfg["llm"].get("temperature"),
             "llm_provider": cfg["llm"].get("provider", "api"), "llm_chatgpt_model": cfg["llm"].get("chatgpt_model", ""),
             "llm_chatgpt_effort": cfg["llm"].get("chatgpt_effort", ""),
-            "llm_api_key_set": bool(key), "llm_api_key_hint": f"…{key[-4:]}" if len(key) >= 8 else ""}
+            "llm_api_key_set": bool(key), "llm_api_key_hint": f"…{key[-4:]}" if len(key) >= 8 else "",
+            "version": app_config.VERSION}
 
 
 @app.put("/api/settings")
