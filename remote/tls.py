@@ -79,3 +79,22 @@ def tailscale_https(data: Path, port: int = DEFAULT_PORT) -> tuple[dict | None, 
 
 def url(info: dict) -> str:
     return f"https://{info['host']}" + ("" if info["port"] == 443 else f":{info['port']}")
+
+
+def tailscale_state() -> dict:
+    """Is Tailscale on this PC, and connected? {installed, connected, host (MagicDNS name), ip, why}. Read-only:
+    it only runs `tailscale status`, never changes anything."""
+    exe = tailscale_exe()
+    if not exe:
+        return {"installed": False, "connected": False, "host": None, "ip": None, "why": "Tailscale isn't installed"}
+    try:
+        status = json.loads(_run([exe, "status", "--json"], 8).stdout or "{}")
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        return {"installed": True, "connected": False, "host": None, "ip": None, "why": f"Tailscale didn't answer ({e})"}
+    state = status.get("BackendState") or "off"
+    me = status.get("Self") or {}
+    host = (me.get("DNSName") or "").rstrip(".") or None
+    ip = next((a for a in me.get("TailscaleIPs") or [] if "." in a), None)
+    connected = state == "Running" and bool(ip)
+    return {"installed": True, "connected": connected, "host": host if connected else None, "ip": ip if connected else None,
+            "https": bool(status.get("CertDomains")), "why": "" if connected else f"Tailscale isn't connected ({state})"}

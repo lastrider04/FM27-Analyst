@@ -438,3 +438,10 @@ img.crest.md { width: 1em; height: 1em; vertical-align: -0.12em; }
 #clubBadge.has-crest img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .brand .applogo { width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0; display: block; }
 #clubBadge { flex-shrink: 0; width: 24px; height: 27px; font-size: 9px; margin-right: 8px; }
+/* Settings › Phone › Access from your devices */
+.access { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.access h3 { margin: 0 0 6px; font-size: 14px; }
+.access ul { margin: 6px 0; padding-left: 18px; } .access li { margin: 4px 0; line-height: 1.6; }
+.access code { overflow-wrap: anywhere; }
+table.shortcuts input, table.shortcuts select { width: 100%; min-width: 70px; }
+table.shortcuts td { vertical-align: middle; }

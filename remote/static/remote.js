@@ -1420,8 +1420,8 @@ function showPair() {
     if (name) $("pair-name").value = decodeURIComponent(name[1]).slice(0, 40);
     history.replaceState(null, "", location.pathname);              // the code works once: don't keep it around
   }
-  $("pair-name").value ||= /iPhone/.test(navigator.userAgent) ? "iPhone" : /Pixel 9 Pro/.test(navigator.userAgent)
-    ? "Pixel 9 Pro" : /Android/.test(navigator.userAgent) ? "Android phone" : "";
+  $("pair-name").value ||= /iPhone/.test(navigator.userAgent) ? "iPhone"
+    : /Android/.test(navigator.userAgent) ? "Android phone" : "";
   if (fromQr && name) $("pair").requestSubmit();                   // from the analyst's Pair button: nothing to type
 }
 $("pair").addEventListener("submit", async (e) => {

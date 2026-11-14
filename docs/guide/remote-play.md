@@ -69,7 +69,7 @@ like the side buttons on a mouse. A label flashes to show which one was sent. It
 while Drag or Scroll is on.
 
 **The shortcut row** (FM27's own keys): **Continue**, Portal, Squad, Tactics, News, **Save** (Ctrl+S), and **App**.
-You can change the shortcuts in `data\remote_shortcuts.json`. Only single keys are allowed, plus Ctrl+S.
+To change them, open the analyst's **Remote tab › Shortcut row**: rename, reorder, remove or add buttons (up to 8), each with a key and an icon. Keys can be a letter, a number, F1-F12, space, enter, escape, tab, an arrow, or Ctrl+S; nothing else, so a button can never send something like Alt+F4. **Back to the defaults** undoes your changes. Phones pick up the new row the next time remote play opens.
 
 **The tool bar** (swipe it for more): **Touch/Mouse** mode, **Keys** (the phone keyboard; the bars hide while it's up),
 **Right** (the next tap is a right-click), **Drag** (for moving players on the tactics pitch), **Scroll** (one finger

@@ -81,8 +81,9 @@ Whichever method you choose:
 | **Port** | The phone listener's port (default 8776). Your proxy, tunnel or firewall rule must use the same one. |
 | **Only accept connections from** | The IP address(es) allowed to connect, separated by commas, for example your proxy's IP or `127.0.0.1, ::1` for Tailscale and Cloudflare. Leave it blank to accept any address on your network. |
 | **Setup guide** | The essentials with your PC's own IP and port filled in. |
+| **Access from your devices** | The addresses your phone can open: your public address if you set one, your Tailscale address when Tailscale is connected on this PC (with the firewall rule it needs), and your home Wi-Fi address. If Tailscale isn't set up, it says how to get access away from home. It warns you when **Only accept connections from** blocks the direct addresses. |
 | **Pair a device** | Shows a one-time pairing code and its QR code. See [Signing in and pairing](phone-sign-in.md). |
-| **Paired devices** | Every paired device, how it signed in, and when it was last used. **Revoke** signs it out. |
+| **Paired devices** | Every paired device, how it signed in, and when it was last used. **Revoke** signs it out. The **Remote play on home Wi-Fi** and **Remote play over Tailscale** switches let that phone open [remote play](remote-play.md) from its Remote tab, with nothing more to pair. |
 | **Google sign-in** / **Password (backup)** | See [Signing in and pairing](phone-sign-in.md). |
 
 ## Installing it on your phone

@@ -154,7 +154,8 @@ def status() -> dict:
     where = str(dirs[0] if dirs else home / "Documents" / "Sports Interactive" / "Football Manager 27" / "graphics")
     if _index is None:
         warm()
-    return {"scanning": _index is None, "count": len(_index or {}), "folder": where, "found_folder": bool(dirs)}
+    return {"scanning": _index is None, "count": len(_index or {}), "folder": where, "found_folder": bool(dirs),
+            "custom": app_config.load_config().get("graphics_dir") or ""}
 
 
 def rescan() -> None:

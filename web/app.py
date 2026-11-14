@@ -231,6 +231,27 @@ def crests_rescan():
     return crests.status()
 
 
+class CrestFolder(BaseModel):
+    folder: str = ""
+
+
+@app.put("/api/crests")
+def crests_folder(body: CrestFolder):
+    """Settings › Appearance › Club crests: FM27's graphics folder, when it isn't in Documents. Blank = find it."""
+    from . import crests
+    folder = body.folder.strip().strip('"')
+    if folder and not Path(folder).is_dir():
+        raise HTTPException(400, "That folder doesn't exist. Use FM27's graphics folder, the one the logo pack went into.")
+    cfg = app_config.load_config()
+    if folder:
+        cfg["graphics_dir"] = folder
+    else:
+        cfg.pop("graphics_dir", None)
+    app_config.save_config(cfg)
+    crests.rescan()
+    return crests.status()
+
+
 @app.get("/api/crest/{club_id}")
 def crest(club_id: int):
     """The club's crest from the logo pack installed for FM27 (web/crests.py), or 404 (the page shows initials)."""
@@ -1116,7 +1137,18 @@ def remote_get():
             "redirect_uri": remote.redirect_uri(r) if r["public_url"] else "",
             "password_user": r["password_user"], "password_set": bool(r["password_hash"]),
             "server": REMOTE.state(), "devices": remote.DEVICES.listing(), "lan_ips": _lan_ips(),
-            "base_url": _remote_base(r)}
+            "base_url": _remote_base(r), "tailscale": _tailscale_state()}
+
+
+_TS_CACHE: dict = {"at": 0.0, "state": None}
+
+
+def _tailscale_state() -> dict:
+    """Tailscale on this PC (Settings › Phone › Access from your devices), cached for 30 s."""
+    from remote.tls import tailscale_state
+    if _TS_CACHE["state"] is None or time.monotonic() - _TS_CACHE["at"] > 30:
+        _TS_CACHE.update(at=time.monotonic(), state=tailscale_state())
+    return _TS_CACHE["state"]
 
 
 @app.put("/api/remote")
@@ -1317,6 +1349,51 @@ def remoteplay_pair(net: str, request: Request):
     from urllib.parse import quote
     c = _rp_local(f"/local/pair-code?link={quote(me['id'])}")["code"]
     return {"url": f"{base}/#pair={c}&name={quote(me['name'][:40], safe='')}"}
+
+
+class Shortcut(BaseModel):
+    label: str
+    key: str
+    icon: str = ""
+
+
+class Shortcuts(BaseModel):
+    shortcuts: list[Shortcut] | None = None      # None = back to the defaults
+
+
+@app.get("/api/remoteplay/shortcuts")
+def remoteplay_shortcuts():
+    """Remote tab › Shortcut row: the buttons along the bottom of remote play, and the keys a button can send."""
+    from remote.inputs import COMBOS, KEYS
+    from remote.server import DEFAULT_SHORTCUTS, load_shortcuts
+    return {"shortcuts": load_shortcuts(), "defaults": DEFAULT_SHORTCUTS, "keys": sorted(KEYS) + sorted(COMBOS),
+            "custom": (app_config.DATA / "remote_shortcuts.json").exists()}
+
+
+@app.put("/api/remoteplay/shortcuts")
+def remoteplay_shortcuts_save(body: Shortcuts):
+    """Save the shortcut row (data/remote_shortcuts.json). Phones pick it up when remote play next loads."""
+    import json
+    from remote.inputs import COMBOS, KEYS
+    path = app_config.DATA / "remote_shortcuts.json"
+    if body.shortcuts is None:
+        path.unlink(missing_ok=True)
+        return remoteplay_shortcuts()
+    out = []
+    for sc in body.shortcuts:
+        key = sc.key.strip().lower()
+        if key not in KEYS and key not in COMBOS:
+            raise HTTPException(400, f"\"{sc.key}\" isn't a key remote play can send. Use a letter, a number, F1-F12, "
+                                     "space, enter, escape, tab, an arrow (left/right/up/down), or ctrl+s.")
+        label = sc.label.strip()[:12] or key.upper()
+        out.append({"label": label, "key": key, "icon": sc.icon.strip()[:12], **({"primary": True} if key == "space" else {})})
+    if not out:
+        raise HTTPException(400, "Keep at least one shortcut.")
+    if len(out) > 8:
+        raise HTTPException(400, "Up to 8 shortcuts fit on the row.")
+    app_config.DATA.mkdir(exist_ok=True)
+    path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    return remoteplay_shortcuts()
 
 
 @app.delete("/api/remoteplay/devices/{dev_id}")

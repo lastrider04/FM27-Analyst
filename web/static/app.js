@@ -1231,6 +1231,38 @@ async function clubSetup() {
 const DEVICE_VIA = { qr: "QR code only", google: "Google + pairing code", password: "password + pairing code" };
 const ago = (t) => (t ? new Date(t * 1000).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "–");
 
+// Settings › Phone › "Access from your devices": the addresses a phone can open, and Tailscale for away from home.
+const GUIDE = "https://github.com/lastrider04/FM27-Analyst/blob/main/docs/guide/";
+const guideLink = (page, text) => `<a href="${GUIDE}${page}" target="_blank" rel="noopener">${text}</a>`;
+const isTailscaleIp = (ip) => /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip);
+function accessCard(r) {
+  const ts = r.tailscale || {};
+  const home = r.lan_ips.filter((ip) => !isTailscaleIp(ip));
+  const addr = (host) => `<code>http://${esc(host)}:${r.port}</code>`;
+  const rows = [];
+  if (r.public_url) rows.push(`<li>From anywhere, through your proxy: <code>${esc(r.public_url)}</code></li>`);
+  if (ts.connected) {
+    rows.push(`<li><span class="up">✓</span> Tailscale is connected. From anywhere, with Tailscale on the phone:
+      ${addr(ts.host)} <span class="muted small0">(or ${addr(ts.ip)}). Allow it through Windows Firewall once
+      (PowerShell as administrator):</span><br><code>New-NetFirewallRule -DisplayName "FM27 Analyst phone (Tailscale)" -Direction Inbound
+      -Protocol TCP -LocalPort ${r.port} -RemoteAddress 100.64.0.0/10 -Action Allow</code></li>`);
+  }
+  rows.push(home.length ? `<li>On your home Wi-Fi only: ${home.map(addr).join(" or ")}</li>`
+    : "<li>No home network address found for this PC.</li>");
+  return `<div class="access"><h3>Access from your devices</h3>
+    ${!r.enabled ? '<p class="muted small0">Turn on <b>Allow phone access</b> above first.</p>' : ""}
+    ${!ts.connected ? `<p class="small0">To use the app away from home, set up ${guideLink("phone-tailscale.md", "Tailscale")}
+      (free): install it on this PC and on your phone, signed in to the same account.
+      ${ts.installed ? `<span class="muted">Right now: ${esc(ts.why)}.</span>` : ""}</p>` : ""}
+    <ul class="small0">${rows.join("")}</ul>
+    ${r.proxy_ip ? `<p class="muted small0">⚠ <b>Only accept connections from</b> is set (${esc(r.proxy_ip)}), so the direct
+      addresses above are blocked. Clear it to use them.</p>` : ""}
+    <p class="muted small0">Or set up a new phone first with <b>Pair a device</b> below; it then signs in at one of these
+      addresses. Guides: ${guideLink("phone-local-network.md", "Local network")} ·
+      ${guideLink("phone-tailscale.md", "Tailscale")} · ${guideLink("phone.md", "Phone app")} ·
+      ${guideLink("remote-play.md", "Remote play")}</p></div>`;
+}
+
 async function phonePane() {
   const el = $("#phonePane");
   if (!el) return;
@@ -1268,6 +1300,7 @@ async function phonePane() {
       <li>Enter the public address above, turn on phone access, then pair your phone below.</li>
       <li>On the phone, open the site and add it to the home screen (Safari: Share › Add to Home Screen; Chrome: Install app).</li>
     </ol></details>
+    ${accessCard(r)}
   </div>
 
   <div class="card wide">${h2i("Pair a device", "Pairing takes two steps on the phone: sign in with Google or the password, "
@@ -1446,9 +1479,21 @@ async function appearancePane() {
         ? `<span class="up">✓</span> ${c.count.toLocaleString()} club crests found in <code>${esc(c.folder)}</code>`
         : `No logo pack found, so clubs show initials. To see real crests, install a logo pack for FM27 into
            <code>${esc(c.folder)}</code> (the pack's instructions say where), then press Look again.`;
-      card.insertAdjacentHTML("beforeend", ' <button type="button" class="secondary" id="crestRescan">Look again</button>');
+      card.insertAdjacentHTML("beforeend", ` <button type="button" class="secondary" id="crestRescan">Look again</button>
+        <form class="settings" id="crestForm" style="margin-top:10px"><label>FM27 graphics folder ${info("Only needed when "
+          + "FM27's user folder isn't in Documents (for example you moved it to another drive). Leave blank to find it by itself.")}</label>
+          <input name="folder" value="${esc(c.custom)}" placeholder="${esc(c.found_folder && !c.custom ? c.folder : "Found by itself")}">
+          <div style="margin-top:8px"><button type="submit" class="secondary">Save folder</button></div></form>`);
       $("#crestRescan").addEventListener("click", async () => {
         await api("/api/crests/rescan", { method: "POST" }); showCrests();
+      });
+      $("#crestForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await api("/api/crests", { method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folder: new FormData(e.target).get("folder") }) });
+          toast("Looking for crests in that folder"); showCrests();
+        } catch (err) { toast(err.message, true); }
       });
     } catch (e) { card.textContent = e.message; }
   };
@@ -1522,6 +1567,55 @@ function fillContext(s) {
 // Control FM27 from a phone: a live picture of the game with touch controls, alerts when FM27 needs you.
 // It runs as its own process (remote/). On this PC the tab manages it; on a phone it opens it. Remote play itself is
 // only reachable on home Wi-Fi or Tailscale, never through the public proxy, so a phone opens it at its own address.
+// Remote tab › Shortcut row: edit remote play's bottom buttons (saved to data/remote_shortcuts.json on the PC).
+const RP_ICONS = { continue: "Continue", home: "Home", squad: "Squad", tactics: "Tactics", news: "News", mail: "Inbox",
+  calendar: "Calendar", training: "Training", transfers: "Transfers", search: "Search", save: "Save", "": "Text only" };
+async function shortcutsCard(state) {
+  const card = $("#rpShortcuts");
+  if (!card) return;
+  let d = state;
+  if (!d) {
+    try { d = await api("/api/remoteplay/shortcuts"); } catch (e) { card.querySelector("div.muted").textContent = e.message; return; }
+  }
+  const rows = d.shortcuts;
+  card.innerHTML = `${card.querySelector("h2").outerHTML}
+    <table class="saves shortcuts"><thead><tr><th class="l">Label</th><th class="l">Key${info("A letter, a number, F1-F12, "
+      + "space, enter, escape, tab, an arrow (left, right, up, down), or ctrl+s. FM27's defaults: space = Continue, 1 = Portal, "
+      + "2 = Squad, 3 = Tactics, n = News.")}</th><th class="l">Icon</th><th></th></tr></thead><tbody>
+    ${rows.map((s, i) => `<tr data-i="${i}"><td class="l"><input data-f="label" maxlength="12" value="${esc(s.label)}"></td>
+      <td class="l"><input data-f="key" list="rpKeys" maxlength="8" size="7" value="${esc(s.key)}"></td>
+      <td class="l"><select data-f="icon">${Object.entries(RP_ICONS).map(([k, t]) =>
+        `<option value="${k}" ${k === (RP_ICONS[s.icon] !== undefined ? s.icon : "") ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+      <td class="snapbtns"><button type="button" class="secondary" data-up="${i}" ${i ? "" : "disabled"} title="Move left">↑</button>
+        <button type="button" class="secondary danger" data-del="${i}" ${rows.length > 1 ? "" : "disabled"}>Remove</button></td></tr>`).join("")}
+    </tbody></table><datalist id="rpKeys">${d.keys.map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="secondary" id="scAdd" ${rows.length >= 8 ? "disabled" : ""}>Add a shortcut</button>
+      <button type="button" id="scSave">Save</button>
+      ${d.custom ? '<button type="button" class="secondary" id="scReset">Back to the defaults</button>' : ""}</div>`;
+  const read = () => [...card.querySelectorAll("tbody tr")].map((tr) => ({
+    label: tr.querySelector('[data-f="label"]').value, key: tr.querySelector('[data-f="key"]').value,
+    icon: tr.querySelector('[data-f="icon"]').value }));
+  const redraw = (list) => shortcutsCard({ ...d, shortcuts: list });
+  $("#scAdd").addEventListener("click", () => redraw([...read(), { label: "", key: "", icon: "" }]));
+  card.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () =>
+    redraw(read().filter((_, i) => i !== Number(b.dataset.del)))));
+  card.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => {
+    const list = read(), i = Number(b.dataset.up);
+    [list[i - 1], list[i]] = [list[i], list[i - 1]];
+    redraw(list);
+  }));
+  const send = async (body, msg) => {
+    try {
+      shortcutsCard(await api("/api/remoteplay/shortcuts", { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body) }));
+      toast(msg);
+    } catch (e) { toast(e.message, true); }
+  };
+  $("#scSave").addEventListener("click", () => send({ shortcuts: read() }, "Shortcut row saved"));
+  $("#scReset")?.addEventListener("click", () => send({ shortcuts: null }, "Shortcut row back to the defaults"));
+}
+
 async function remotePage() {
   const r = await api("/api/remoteplay");
   if (REMOTE) return remotePhone(r);
@@ -1574,7 +1668,12 @@ async function remotePage() {
       <td class="l muted">last used ${ago(d.last_seen)}</td>
       <td class="snapbtns"><button class="secondary danger" data-rprevoke="${esc(d.id)}">Unpair</button></td></tr>`).join("")}</tbody></table>`
       : `<p class="muted">${r.running ? "No phones paired yet." : "Start remote play to see paired phones."}</p>`}
-  </div>`;
+  </div>
+
+  <div class="card wide" id="rpShortcuts">${h2i("Shortcut row", "The buttons along the bottom of remote play. Each one presses "
+    + "one of FM27's keyboard shortcuts on the PC (your own FM27 shortcuts work too). Up to 8. Phones pick up changes the next "
+    + "time remote play opens.")}<div class="muted small">Loading…</div></div>`;
+  shortcutsCard();
 
   $("#rpStart")?.addEventListener("click", (e) => { e.target.disabled = true; e.target.textContent = "Starting…"; put({ running: true }, "Remote play started"); });
   $("#rpStop")?.addEventListener("click", () => put({ running: false }, "Remote play stopped"));

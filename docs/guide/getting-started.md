@@ -59,7 +59,7 @@ The header takes your club's colours (see [Appearance](#appearance)). From left 
 
 | Element | Meaning |
 |---|---|
-| **Club badge · FM27 Analyst · *snapshot name*** | The badge shows your club's initials. The chip is the [game snapshot](game-snapshots.md) in use; click it to manage snapshots. |
+| **Club badge · FM27 Analyst · *snapshot name*** | The badge shows your club's crest if you have a logo pack installed (see [Appearance](#appearance)), otherwise its initials. The chip is the [game snapshot](game-snapshots.md) in use; click it to manage snapshots. |
 | **Page tabs** | Overview, Players, Compare, Development, Per 90, Fixtures, Settings. |
 | **● Game running** | Green when FM27 is running and can be read. |
 | **Auto** | Automatic capture on or off. |
@@ -82,6 +82,9 @@ Hover over any of them for more detail. Throughout the app, the **ⓘ** icons ne
   - **Club colours** (the default): the app reads your club's primary colour from the game at each capture and builds the theme from it, including the header, tabs, title markers and charts. It shows the default red until your first capture.
   - **Custom:** choose your own colour with the picker or a preset.
 - **Readability:** text on the colour switches between black and white for contrast, and very light or very dark club colours are adjusted so they stay visible in each mode.
+- **Club crests:** FM27 doesn't ship real club logos. If you've installed a logo pack for FM27 (for example TCM or the FMG standard logos), the app shows the same crests: your club in the header, opponents in fixtures and match reports, and in remote play. Without one, everything works the same with initials.
+  - The card says how many crests it found and where it looked. After installing a pack, press **Look again**.
+  - **FM27 graphics folder:** only needed if your FM27 user folder isn't in Documents (for example you moved it to another drive). Paste the `graphics` folder the pack went into and press **Save folder**; leave it blank to find it by itself.
 
 ## Running in the background
 - **Closing the window doesn't stop the app.** It keeps running in the background, so auto-capture and the hotkey keep working while you play.

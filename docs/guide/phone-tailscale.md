@@ -37,6 +37,8 @@ Tailscale prints your HTTPS address, for example `https://my-pc.tail1234.ts.net`
 
 > Older Tailscale versions use a different syntax (`tailscale serve https / http://127.0.0.1:8776`). Update Tailscale if the command above isn't recognised.
 
+> **Quicker, without HTTPS:** you can skip `tailscale serve` and open `http://<your-pc>.<tailnet>.ts.net:8776` on the phone, with Tailscale on. **Settings › Phone › Access from your devices** shows the exact address when Tailscale is connected on the PC. It needs a firewall rule for Tailscale addresses (shown there too), **Only accept connections from** left blank, and password sign-in. Like the [local network](phone-local-network.md) setup it's plain `http://`, so it won't install as an app, but Tailscale encrypts the connection itself. Then go straight to step 5.
+
 ## 4. Point FM27 Analyst at the Tailscale address
 In **Settings › Phone**:
 
