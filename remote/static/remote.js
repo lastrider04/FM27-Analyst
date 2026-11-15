@@ -5,7 +5,8 @@
 //   double-tap          zoom in 2.5x on that spot / back to fit
 //   pinch               zoom (1x to 5x) around your fingers; two fingers also pan
 //   one-finger drag     pan when zoomed in; with "Drag" on it drags with the mouse button held; with "Scroll" on
-//                       it turns the mouse wheel
+//                       it turns the mouse wheel, up/down and left/right: slow near where you started, faster
+//                       the further you drag, and it keeps going while you hold at the edge
 //   press and hold      magnifier: slide to aim precisely, lift to click there
 //   minimap             tap or drag to jump around while zoomed in
 //   draw a circle       anticlockwise = FM27's Back, clockwise = Forward (one finger, a full turn)
@@ -17,7 +18,7 @@ const mini = $("minimap"), mctx = mini.getContext("2d");
 const loupe = $("loupe"), lctx = loupe.getContext("2d");
 const statusEl = $("status"), zoomEl = $("zoomlevel"), kbd = $("kbd");
 
-const MAX_ZOOM = 5, DOUBLE_ZOOM = 2.5, TAP_SLOP = 10, HOLD_MS = 450, DOUBLE_MS = 260, WHEEL_STEP = 36;
+const MAX_ZOOM = 5, DOUBLE_ZOOM = 2.5, TAP_SLOP = 10, HOLD_MS = 450, DOUBLE_MS = 260, WHEEL_STEP = 48;
 
 let ws = null, denied = false, pendingMeta = null;
 let fw = 1920, fh = 1200;                 // FM27 window size in FM pixels
@@ -357,6 +358,51 @@ function flash(sx, sy) {      // a small ring where the click landed
 // ------------------------------------------------------------------ gestures
 const pointers = new Map();
 let gesture = null;          // {kind: "single"|"pinch", ...}
+
+// Scroll mode. One wheel notch per WHEEL_STEP px of finger travel, so it feels deliberate; that speeds up to
+// SCROLL_BOOST times as the finger gets further from where it started, and holding near the edge of the screen keeps
+// scrolling that way. The first clear movement picks up/down or left/right, so a slightly crooked swipe doesn't
+// wander sideways; a clearly sideways swipe later switches it.
+const SCROLL_FAST_FROM = 90, SCROLL_FAST_SPAN = 220, SCROLL_BOOST = 2.5, SCROLL_EDGE = 0.1, SCROLL_REPEAT_MS = 120;
+function scrollMove(g, p, step, at) {
+  const dx = p.x - g.start.x, dy = p.y - g.start.y;
+  if (!g.axis || (g.axis === "y" ? Math.abs(dx) > 2 * Math.abs(dy) + 30 : Math.abs(dy) > 2 * Math.abs(dx) + 30)) {
+    g.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    g.wheelAcc = 0; g.hwheelAcc = 0;
+  }
+  const far = Math.hypot(dx, dy);
+  const boost = 1 + (SCROLL_BOOST - 1) * Math.min(1, Math.max(0, (far - SCROLL_FAST_FROM) / SCROLL_FAST_SPAN));
+  if (g.axis === "y") g.wheelAcc += step.y * boost;
+  else g.hwheelAcc = (g.hwheelAcc || 0) + step.x * boost;
+  flushWheel(g, at);
+  // at the edge, in the direction of travel: keep scrolling until the finger moves back or lifts
+  const r = stage.getBoundingClientRect(), ex = r.width * SCROLL_EDGE, ey = r.height * SCROLL_EDGE;
+  const dir = g.axis === "y" ? (p.y > r.height - ey && dy > 0 ? 1 : p.y < ey && dy < 0 ? -1 : 0)
+                             : (p.x > r.width - ex && dx > 0 ? 1 : p.x < ex && dx < 0 ? -1 : 0);
+  g.edgeDir = dir;
+  if (dir && !g.edgeTimer) {
+    const tick = () => {
+      if (gesture !== g || !g.edgeDir || !modes.scroll) { g.edgeTimer = 0; return; }
+      if (g.axis === "y") g.wheelAcc += g.edgeDir * WHEEL_STEP; else g.hwheelAcc += g.edgeDir * WHEEL_STEP;
+      flushWheel(g, at);
+      g.edgeTimer = setTimeout(tick, SCROLL_REPEAT_MS);
+    };
+    g.edgeTimer = setTimeout(tick, SCROLL_REPEAT_MS);
+  }
+}
+function flushWheel(g, at) {
+  // the picture follows the finger, like scrolling a phone: finger down = wheel up, finger right = wheel left
+  while (Math.abs(g.wheelAcc) >= WHEEL_STEP) {
+    const n = g.wheelAcc > 0 ? 1 : -1;
+    g.wheelAcc -= n * WHEEL_STEP;
+    send({ t: "wheel", ...at(), n });
+  }
+  while (Math.abs(g.hwheelAcc || 0) >= WHEEL_STEP) {
+    const n = g.hwheelAcc > 0 ? 1 : -1;
+    g.hwheelAcc -= n * WHEEL_STEP;
+    send({ t: "hwheel", ...at(), n: -n });
+  }
+}
 let lastTap = null, tapTimer = 0;
 
 cv.addEventListener("pointerdown", (e) => {
@@ -366,7 +412,7 @@ cv.addEventListener("pointerdown", (e) => {
   if (pointers.size === 1 && mouseMode) {
     mouseDown(p);
   } else if (pointers.size === 1) {
-    gesture = { kind: "single", start: p, last: p, path: [p], t0: performance.now(), moved: false, wheelAcc: 0,
+    gesture = { kind: "single", start: p, last: p, path: [p], t0: performance.now(), moved: false, wheelAcc: 0, hwheelAcc: 0,
                 pressed: false, loupe: false, startScale: scale, startTx: tx, startTy: ty };
     if (modes.drag) {          // like a real mouse: the button goes down the moment the finger touches
       gesture.pressed = true;
@@ -421,12 +467,8 @@ cv.addEventListener("pointermove", (e) => {
   if (gesture.pressed) {
     throttledDrag(p);
   } else if (modes.scroll) {
-    gesture.wheelAcc += step.y;
-    while (Math.abs(gesture.wheelAcc) >= WHEEL_STEP) {
-      const n = gesture.wheelAcc > 0 ? 1 : -1;      // finger down = content down = wheel up
-      gesture.wheelAcc -= n * WHEEL_STEP;
-      send({ t: "wheel", ...fmPoint(gesture.start.x, gesture.start.y), n });
-    }
+    const g = gesture;
+    scrollMove(g, p, step, () => fmPoint(g.start.x, g.start.y));
   } else {
     tx += step.x; ty += step.y; clampView(); viewChanged();      // pan
   }
@@ -526,7 +568,7 @@ function cursorPt() {
 }
 
 function mouseDown(p) {
-  gesture = { kind: "single", mouse: true, start: p, last: p, path: [p], moved: false, pressed: false, wheelAcc: 0 };
+  gesture = { kind: "single", mouse: true, start: p, last: p, path: [p], moved: false, pressed: false, wheelAcc: 0, hwheelAcc: 0 };
   if (modes.drag) {                      // Drag on: the button goes down at the cursor straight away
     gesture.pressed = cursorDown = true;
     send({ t: "press", ...cursorPt() }); draw();
@@ -554,12 +596,7 @@ function mouseMove(p) {
   }
   g.last = p;
   if (modes.scroll && !g.pressed) {      // Scroll on: the finger turns the wheel at the cursor
-    g.wheelAcc += step.y;
-    while (Math.abs(g.wheelAcc) >= WHEEL_STEP) {
-      const n = g.wheelAcc > 0 ? 1 : -1;
-      g.wheelAcc -= n * WHEEL_STEP;
-      send({ t: "wheel", ...cursorPt(), n });
-    }
+    scrollMove(g, p, step, cursorPt);
     return;
   }
   cursorPt();                            // repairs a cursor that never got a real position
@@ -619,7 +656,8 @@ cv.addEventListener("wheel", (e) => {
   e.preventDefault();
   const p = stagePoint(e);
   if (e.ctrlKey) { zoomAt(p.x, p.y, scale * Math.exp(-e.deltaY / 300)); return; }
-  send({ t: "wheel", ...fmPoint(p.x, p.y), n: e.deltaY > 0 ? -1 : 1 });
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) send({ t: "hwheel", ...fmPoint(p.x, p.y), n: e.deltaX > 0 ? 1 : -1 });
+  else send({ t: "wheel", ...fmPoint(p.x, p.y), n: e.deltaY > 0 ? -1 : 1 });
 }, { passive: false });
 
 // ------------------------------------------------------------------ loupe
@@ -1310,7 +1348,7 @@ function setMode(name, on) {
 }
 $("b-right").onclick = () => setMode("right", !modes.right);
 $("b-drag").onclick = () => { setMode("drag", !modes.drag); if (modes.drag) status("Drag: one finger moves things with the button held"); };
-$("b-scroll").onclick = () => { setMode("scroll", !modes.scroll); if (modes.scroll) status("Scroll: one finger turns the mouse wheel"); };
+$("b-scroll").onclick = () => { setMode("scroll", !modes.scroll); if (modes.scroll) status("Scroll: drag up, down, left or right; drag further to go faster"); };
 $("b-esc").onclick = () => send({ t: "key", k: "escape" });
 $("b-fit").onclick = () => fit();
 $("b-video").onclick = () => setVideoQuality(nextVideoQuality());

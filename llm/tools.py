@@ -11,8 +11,9 @@ from analytics.players import all_players
 TOOLS = [
     {"name": "get_player",
      "description": "Full detail on one player at the club (any team, loans included): attributes 1-20, CA history, "
-                    "every captured match, injury, and keeper stats or role scores. Use for questions about a "
-                    "specific player who isn't the page in view.",
+                    "every captured match, injury, keeper stats or role scores, per 90s and recent development. Also finds "
+                    "players on the user's shortlist (transfer targets): value, contract and CA history, signals, "
+                    "attributes. Use for questions about a specific player who isn't the page in view.",
      "parameters": {"type": "object", "properties": {"name": {"type": "string", "description": "Player name or surname"}},
                     "required": ["name"]}},
     {"name": "get_match",
@@ -48,7 +49,7 @@ def _stored_matches(con: sqlite3.Connection, club_id: int) -> list[sqlite3.Row]:
 
 def run(con: sqlite3.Connection, club_id: int, name: str, arguments: str | dict) -> str:
     """Execute a tool call; always returns text for the model (errors included, never raises)."""
-    from llm.context import _focus, _match_block
+    from llm.context import _focus, _match_block, _shortlist_focus
     try:
         args = json.loads(arguments) if isinstance(arguments, str) else (arguments or {})
     except ValueError:
@@ -63,7 +64,13 @@ def run(con: sqlite3.Connection, club_id: int, name: str, arguments: str | dict)
             exact = [p for p in hits if _fold(p["name"]) == want or _fold(p["name"]).split()[-1] == want]
             hits = exact or hits
             if not hits:
-                return f"No player matching '{args.get('name')}' at the club."
+                from analytics.shortlist import shortlist
+                sl = [p for p in shortlist(con, club_id)["players"] if want in _fold(p["name"])]
+                if len(sl) == 1:
+                    return _shortlist_focus(con, club_id, sl[0]["unique_id"])
+                if sl:
+                    return "Several shortlisted players match: " + ", ".join(p["name"] for p in sl[:10])
+                return f"No player matching '{args.get('name')}' at the club or on the shortlist."
             if len(hits) > 1 and not exact:
                 return "Several players match: " + ", ".join(f"{p['name']} ({p['position']}, {p['where']})" for p in hits[:10])
             return _focus(con, club_id, f"player/{hits[0]['unique_id']}", data).replace("PAGE IN VIEW: player page of", "PLAYER:")

@@ -73,7 +73,8 @@ To change them, open the analyst's **Remote tab › Shortcut row**: rename, reor
 
 **The tool bar** (swipe it for more): **Touch/Mouse** mode, **Keys** (the phone keyboard; the bars hide while it's up),
 **Right** (the next tap is a right-click), **Drag** (for moving players on the tactics pitch), **Scroll** (one finger
-turns the mouse wheel), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), **Analyst** and **Alerts**.
+turns the mouse wheel: drag up or down, or left and right for wide tables; it starts slow, gets faster the further you
+drag, and keeps going while you hold at the edge of the screen), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), **Analyst** and **Alerts**.
 
 **Video** steps through **Off → Low → Medium → High**: still pictures, then smooth video at 5, 10 or 16 Mbit/s. Medium
 suits most home Wi-Fi.

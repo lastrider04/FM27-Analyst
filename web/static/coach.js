@@ -188,7 +188,9 @@
   async function open() {
     $c("#coach").classList.remove("hidden"); $c("#coachBtn").classList.add("hidden"); provider();
     if (!msgs.length && convId) await loadConv(convId);      // reopen the last conversation, even after a restart
-    render(); $c("#coachInput").focus();
+    render();
+    // on a phone, focusing would pop the keyboard up over the suggestions: let the user tap the box instead
+    if (!matchMedia("(pointer: coarse)").matches) $c("#coachInput").focus();
   }
   function close() { $c("#coach").classList.add("hidden"); $c("#coachBtn").classList.toggle("hidden", !ready); }
 

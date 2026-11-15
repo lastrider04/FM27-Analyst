@@ -10,7 +10,7 @@ Phone → server (JSON):
   {"t": "view", x, y, w, h, out}           the visible FM27 region and how many device pixels wide it's drawn
   {"t": "ack", "seq"}                      a frame was drawn; at most two frames are in flight
   {"t": "click"|"press"|"drag"|"release"|"move", x, y, [button, double]}
-  {"t": "wheel", x, y, n}  {"t": "text", s}  {"t": "key", k}
+  {"t": "wheel", x, y, n}  {"t": "hwheel", x, y, n}  {"t": "text", s}  {"t": "key", k}
 Video (Phase 2, WebRTC):
   phone → {"t": "rtc-offer", sdp, type, quality}   server → {"t": "rtc-answer", sdp, type} (or {"t": "rtc-error", msg})
                                                   quality: low / normal / high (5 / 10 / 16 Mbit/s)
@@ -286,6 +286,7 @@ class Client:
             "release": lambda: c.release(x, y),
             "move": lambda: c.move(x, y),
             "wheel": lambda: c.wheel(x, y, int(msg.get("n", 0))),
+            "hwheel": lambda: c.hwheel(x, y, int(msg.get("n", 0))),
             "text": lambda: c.text(str(msg.get("s", ""))),
             "key": lambda: c.key(str(msg.get("k", ""))),
             "nav": lambda: c.nav(str(msg.get("dir", "")), x, y),

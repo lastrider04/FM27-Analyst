@@ -20,6 +20,7 @@ MOVE, LEFTDOWN, LEFTUP, RIGHTDOWN, RIGHTUP, WHEEL, ABSOLUTE, VIRTUALDESK = (
     0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0800, 0x8000, 0x4000)
 KEYUP, UNICODE, SCANCODE = 0x0002, 0x0004, 0x0008
 XDOWN, XUP = 0x0080, 0x0100
+HWHEEL = 0x1000           # the sideways wheel (tilt wheel / trackpad)
 NAV_BUTTONS = {"back": 0x0001, "forward": 0x0002}    # the mouse's side buttons (XBUTTON1/2): FM27's Back and Forward
 PRESS_HOLD_S = 0.15       # button held this long before a drag starts moving
 DRAG_STEP_PX = 12         # drag moves are split into steps no bigger than this
@@ -188,6 +189,15 @@ class Controller:
             self._move_to(self._target(), x, y)
             for _ in range(abs(notches)):
                 _send(_mouse(WHEEL, data=120 if notches > 0 else -120))
+                time.sleep(0.02)
+
+    def hwheel(self, x: float, y: float, notches: int) -> None:
+        """notches > 0 scrolls right, < 0 left, like tilting a mouse wheel."""
+        notches = max(-10, min(10, int(notches)))
+        with self.lock:
+            self._move_to(self._target(), x, y)
+            for _ in range(abs(notches)):
+                _send(_mouse(HWHEEL, data=120 if notches > 0 else -120))
                 time.sleep(0.02)
 
     def text(self, s: str) -> None:

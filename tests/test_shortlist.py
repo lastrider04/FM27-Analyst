@@ -81,3 +81,15 @@ def test_go_now_list(con):
     assert d["go_now"] == [2000000077]          # final year of the contract; the other has years left
     (p,) = [x for x in d["players"] if x["unique_id"] == 2000000077]
     assert p["go_reasons"][0].startswith("final year")
+
+
+def test_coach_sees_the_shortlist(con):
+    from llm.context import build_context
+    from llm.tools import run
+    store_snapshot(con, snap_with([target(expires="2032-09-30")]))
+    ctx = build_context(con, 1001)
+    assert "SHORTLIST (" in ctx and "Target 77" in ctx and "GO FOR THEM NOW (the app's list): Target 77" in ctx
+    assert "value" in ctx.split("SENIOR SQUAD")[1].splitlines()[1]          # squad table carries value/wage/contract
+    page = build_context(con, 1001, "shortlist/2000000077").split("PAGE IN VIEW")[-1]
+    assert "SHORTLISTED PLAYER Target 77" in page and "dribbling 14" in page
+    assert run(con, 1001, "get_player", {"name": "Target 77"}).startswith("SHORTLISTED PLAYER Target 77")

@@ -1,6 +1,9 @@
 // FM27 Analyst dashboard: hash-routed single page over /api.
 const $ = (s, el = document) => el.querySelector(s);
 const view = $("#view");
+// the context strip sticks right under the header, whatever height the header is (notch, wrapped controls)
+const setHdr = () => document.body.style.setProperty("--hdr", $("header").offsetHeight + "px");
+setHdr(); new ResizeObserver(setHdr).observe($("header"));
 // phone companion: set from /api/status when this page came through the phone listener (web/remote.py)
 let REMOTE = false;
 let NEEDS_CLUB = false;    // first run: no club chosen yet
@@ -468,14 +471,14 @@ async function overview() {
       <div class="formstr" style="font-size:16px;margin-bottom:8px">${tf.results.map((r) => matchLink(r.fixture_id, res(r.result))).join("")}</div>
       <div class="kpis tiles">${kpi(tf.points, "points", tf.points / (3 * tf.results.length || 1), "var(--good)")}
         ${kpi(`${tf.goals_for}–${tf.goals_against}`, "goals")}${kpi(tf.unbeaten_run, "unbeaten run")}</div>
-      <table class="form"><tbody>${tf.results.slice().reverse().map((r) => `<tr class="clickrow" data-href="match/${r.fixture_id}"
+      <div class="scroll formscroll"><table class="form"><tbody>${tf.results.slice().reverse().map((r) => `<tr class="clickrow" data-href="match/${r.fixture_id}"
         title="${esc(r.competition)}"><td class="l date">${r.date}</td><td class="l">${r.venue}</td>
         <td class="l opp">${crest(r.opponent_id, "sm")}${esc(r.opponent)}</td><td>${r.gf}–${r.ga}</td><td>${res(r.result)}</td>
-        <td class="l comp muted">${esc(shortComp(r.competition))}</td><td class="stats">${r.has_stats ? "📊" : ""}</td></tr>`).join("")}</tbody></table></div>`;
+        <td class="l comp muted">${esc(shortComp(r.competition))}</td><td class="stats">${r.has_stats ? "📊" : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
   html += `<div class="card"><div class="cardhead"><h2>Next fixtures</h2><a class="btn secondary" href="#fixtures">All fixtures</a></div>
-      ${o.upcoming.length ? `<table class="form"><tbody>${o.upcoming.map((f) => `<tr title="${esc(f.competition)}">
+      ${o.upcoming.length ? `<div class="scroll formscroll"><table class="form"><tbody>${o.upcoming.map((f) => `<tr title="${esc(f.competition)}">
         <td class="l date">${f.date}</td><td class="l">${f.venue}</td><td class="l opp">${crest(f.opponent_id, "sm")}${esc(f.opponent)}</td>
-        <td class="ko">${esc(f.kickoff || "")}</td><td class="l comp muted">${esc(shortComp(f.competition))}</td></tr>`).join("")}</tbody></table>`
+        <td class="ko">${esc(f.kickoff || "")}</td><td class="l comp muted">${esc(shortComp(f.competition))}</td></tr>`).join("")}</tbody></table></div>`
         : '<div class="empty">No upcoming fixtures captured yet - press Capture.</div>'}</div>`;
   html += `<div class="card">${h2i("Alerts", "From the latest capture: injuries, condition under 85%, sharpness under 70%, "
       + "jadedness over 300 (needs a rest), and contracts ending within 12 months.")}${o.alerts.length ? o.alerts.map((a) =>
@@ -523,12 +526,70 @@ async function matchPage(id) {
 const STATUS_TITLES = { "first team": "First team", "loaned in": "Loaned in", "youth team": "Youth teams",
   "loaned out": "Out on loan", "no contract": "No contract (academy / trialists)" };
 
+// ------------------------------------------------------------------ shared: search, position and age filters
+// Rows carry data-pos ("D C|DM": every position the player can play), data-age and, optionally, data-tags.
+const AGE_BANDS = [["", "Any age"], ["u21", "21 and under"], ["22-29", "22 to 29"], ["30+", "30 and over"]];
+const posList = (p) => (p.position || p.primary || "").split(",").map((s) => s.trim()).filter(Boolean);
+const rowAttrs = (p, tags = "") => `data-pos="${esc(posList(p).join("|"))}" data-age="${p.age ?? ""}"${tags ? ` data-tags="${tags}"` : ""}`;
+function filterBar(players, extraChips = "") {
+  const counts = {};
+  players.forEach((p) => posList(p).forEach((x) => { counts[x] = (counts[x] || 0) + 1; }));
+  const byPos = Object.entries(counts).sort((a, b) => posRank(a[0]) - posRank(b[0]));
+  return `<div class="filters fbar"><input id="search" type="search" placeholder="Search name / club…">
+      <select id="ageF" aria-label="Age">${AGE_BANDS.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>
+      <button type="button" class="linkbtn hidden" id="fClear">Clear filters</button></div>
+    <div class="poschips posfilter" title="Show players who can play any of the positions you pick">
+      ${extraChips}${byPos.map(([pos, n]) => `<button type="button" class="poschip" data-pos="${esc(pos)}">${esc(fmPos(pos))} <span class="n">${n}</span></button>`).join("")}</div>`;
+}
+// wires the bar; calls onChange(test, active) where test(row) says whether a row passes the filters
+function wireFilters(key, onChange) {
+  let st = {};
+  try { st = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch { }
+  const pos = new Set(st.pos || []), tags = new Set(st.tags || []);
+  const age = $("#ageF"), q = $("#search"), clear = $("#fClear");
+  age.value = AGE_BANDS.some(([v]) => v === st.age) ? st.age : "";
+  view.querySelectorAll(".posfilter .poschip").forEach((b) => {
+    const set = b.dataset.tag ? tags : pos, k = b.dataset.tag || b.dataset.pos;
+    b.classList.toggle("on", set.has(k));
+    b.addEventListener("click", () => { set.has(k) ? set.delete(k) : set.add(k); b.classList.toggle("on", set.has(k)); run(); });
+  });
+  const inAge = (a) => { const n = parseInt(a, 10);
+    return !age.value || (!isNaN(n) && (age.value === "u21" ? n <= 21 : age.value === "30+" ? n >= 30 : n >= 22 && n <= 29)); };
+  const test = (r) => {
+    const s = q.value.trim().toLowerCase();
+    if (s && !r.textContent.toLowerCase().includes(s)) return false;
+    if (pos.size && !(r.dataset.pos || "").split("|").some((x) => pos.has(x))) return false;
+    if (tags.size && ![...tags].some((t) => (r.dataset.tags || "").split(" ").includes(t))) return false;
+    return inAge(r.dataset.age);
+  };
+  function run() {
+    try { localStorage.setItem(key, JSON.stringify({ pos: [...pos], tags: [...tags], age: age.value })); } catch { }
+    const active = !!(q.value.trim() || pos.size || tags.size || age.value);
+    clear.classList.toggle("hidden", !active);
+    onChange(test, active);
+  }
+  q.addEventListener("input", run); age.addEventListener("change", run);
+  clear.addEventListener("click", () => {
+    pos.clear(); tags.clear(); age.value = ""; q.value = "";
+    view.querySelectorAll(".posfilter .poschip").forEach((b) => b.classList.remove("on")); run();
+  });
+  run();
+}
+
 async function playersPage() {
   const d = await api("/api/players");
   const statuses = Object.keys(STATUS_TITLES);
   const counts = Object.fromEntries(statuses.map((s) => [s, d.players.filter((p) => p.status === s).length]));
   const saved = JSON.parse(localStorage.getItem("playerFilters") || "null") || ["first team", "loaned in", "youth team", "loaned out"];
-  const row = (p) => `<tr data-status="${p.status}"><td>${playerLink(p.unique_id, p.name)}${injBadge(p.injury)}</td><td>${p.age ?? "–"}</td>
+  // the club's 5 best players right now (CA), and the 5 most promising (21 and under, highest PA, then most room to grow)
+  const mine = d.players.filter((p) => p.status !== "no contract");
+  const top = new Set([...mine].sort((a, b) => (b.ca ?? 0) - (a.ca ?? 0)).slice(0, 5).map((p) => p.unique_id));
+  const prom = new Set(mine.filter((p) => p.age != null && p.age <= 21 && p.pa > 0)
+    .sort((a, b) => b.pa - a.pa || (b.pa - b.ca) - (a.pa - a.ca)).slice(0, 5).map((p) => p.unique_id));
+  const badges = (p) => (top.has(p.unique_id) ? ' <span class="pbadge top" title="One of your 5 best players right now (current ability)">★</span>' : "")
+    + (prom.has(p.unique_id) ? ' <span class="pbadge prom" title="One of your 5 most promising players: 21 or under, highest potential">🌱</span>' : "");
+  const tagsOf = (p) => [top.has(p.unique_id) ? "top" : "", prom.has(p.unique_id) ? "prom" : ""].filter(Boolean).join(" ");
+  const row = (p) => `<tr data-status="${p.status}" ${rowAttrs(p, tagsOf(p))}><td>${playerLink(p.unique_id, p.name)}${badges(p)}${injBadge(p.injury)}</td><td>${p.age ?? "–"}</td>
     <td class="l">${esc(p.position || "–")}</td><td class="l where">${esc(p.where)}</td><td>${p.ca}</td><td>${p.pa ?? "?"}</td>
     <td data-v="${p.condition}">${num(p.condition, 0)}% ${bar(p.condition, condColor(p.condition))}</td>
     <td data-v="${p.sharpness}">${num(p.sharpness, 0)}% ${bar(p.sharpness, condColor(p.sharpness))}</td>
@@ -540,26 +601,28 @@ async function playersPage() {
   const cols = 16;
   view.innerHTML = `<div class="card wide"><h2>All players · ${d.game_date || ""} · ${d.players.length} total</h2>
     <div class="filters">${statuses.map((s) => `<label><input type="checkbox" class="sf" value="${s}" ${saved.includes(s) ? "checked" : ""}>
-      ${STATUS_TITLES[s]} <span class="muted">(${counts[s]})</span></label>`).join("")}
-      <input id="search" placeholder="Search name / position / club…"></div>
+      ${STATUS_TITLES[s]} <span class="muted">(${counts[s]})</span></label>`).join("")}</div>
+    ${filterBar(mine, `<button type="button" class="poschip tagchip" data-tag="top" title="Your 5 best players right now">★ Top 5</button>
+      <button type="button" class="poschip tagchip" data-tag="prom" title="21 or under, highest potential">🌱 Most promising</button>`)}
     <div class="scroll"><table id="sq"><thead><tr><th>Player</th><th>Age</th><th class="l">Position</th><th class="l">At</th><th>CA</th><th>PA</th>
       <th>Condition</th><th>Sharpness</th><th>Jaded</th><th>Apps</th><th>Avg</th><th>Form</th><th>Value</th>
       <th>Wage/wk</th><th>Contract</th><th></th></tr></thead><tbody>
       ${statuses.map((s) => d.players.filter((p) => p.status === s).length
         ? `<tr class="group" data-status="${s}"><td colspan="${cols}">${STATUS_TITLES[s]}</td></tr>` + d.players.filter((p) => p.status === s).map(row).join("") : "").join("")}
     </tbody></table></div></div>`;
+  let test = () => true;
   const apply = () => {
     const on = new Set([...document.querySelectorAll(".sf:checked")].map((c) => c.value));
     localStorage.setItem("playerFilters", JSON.stringify([...on]));
-    const q = $("#search").value.toLowerCase();
-    document.querySelectorAll("#sq tbody tr").forEach((r) => {
-      const match = r.classList.contains("group") || !q || r.textContent.toLowerCase().includes(q);
-      r.style.display = on.has(r.dataset.status) && match ? "" : "none";
+    const rows = [...document.querySelectorAll("#sq tbody tr")];
+    rows.forEach((r) => { if (!r.classList.contains("group")) r.style.display = on.has(r.dataset.status) && test(r) ? "" : "none"; });
+    // a group heading only shows while one of its players does
+    rows.filter((r) => r.classList.contains("group")).forEach((g) => {
+      g.style.display = rows.some((r) => !r.classList.contains("group") && r.dataset.status === g.dataset.status && r.style.display !== "none") ? "" : "none";
     });
   };
   document.querySelectorAll(".sf").forEach((c) => c.addEventListener("change", apply));
-  $("#search").addEventListener("input", apply);
-  apply();
+  wireFilters("fm-players-filter", (t) => { test = t; apply(); });
   sortable($("#sq"));
 }
 
@@ -777,16 +840,54 @@ async function developmentPage() {
     ${pair ? `<div class="muted" style="margin-top:6px">snapshot #${pair.before} (${pair.before_date}) → #${pair.after} (${pair.after_date}), ${pair.days} game days</div>` : ""}</div>`;
   if (!pair) { view.innerHTML = head + `<div class="card empty">Needs at least two snapshots.</div>`; return; }
   if (!pair.days) { view.innerHTML = head + `<div class="card empty">All snapshots so far are from the same game date. Capture again after some game time to see development.</div>`; return; }
-  const table = (rows, title) => `<div class="card wide"><h2>${title}</h2>${rows.length ? `<div class="scroll"><table class="dev"><thead><tr>
-    <th>Player</th><th>Age</th><th>CA</th><th>Δ CA</th><th>PA</th><th>Headroom</th><th>Tech</th><th>Ment</th><th>Phys</th><th>GK</th><th>Hidden</th>
-    <th class="l">Biggest changes</th></tr></thead><tbody>${rows.map((x) => `<tr><td>${playerLink(x.unique_id, x.name)}</td><td>${x.age ?? "–"}</td>
-      <td>${x.ca_before}→${x.ca_after}</td><td>${delta(x.ca_delta)}</td><td>${x.pa ?? "?"}</td><td>${x.headroom ?? "?"}</td>
-      ${["technical", "mental", "physical", "goalkeeping", "hidden"].map((g) => `<td>${delta(x.groups[g])}</td>`).join("")}
-      <td class="l">${x.moved.slice(0, 5).map((c) => c.shown_delta ? `<b>${label(c.attr)} ${c.shown_before}→${c.shown_after}</b>` : `${label(c.attr)} ${c.raw_delta > 0 ? "+" : ""}${c.raw_delta}`).join(", ")}</td></tr>`).join("")}
-    </tbody></table></div>` : '<div class="empty">None</div>'}</div>`;
-  view.innerHTML = head + `<div class="grid">${table(d.improvers, "Improving")}${table(d.decliners, "Declining")}</div>`;
+  const table = (rows, title, id) => `<div class="card wide"><h2>${title} <span class="muted" data-count="${id}"></span></h2>${rows.length ? `<div class="scroll"><table class="dev" id="${id}"><thead><tr>
+    <th>Player</th><th>Age</th><th class="l">Position</th><th>CA</th><th>Δ CA</th><th>PA</th><th>Headroom</th><th>Tech</th><th>Ment</th><th>Phys</th><th>GK</th><th>Hidden</th>
+    <th class="l">Biggest changes</th></tr></thead><tbody>${rows.map((x) => `<tr ${rowAttrs(x)}><td>${playerLink(x.unique_id, x.name)}</td><td>${x.age ?? "–"}</td>
+      <td class="l">${esc(x.position || "–")}</td>
+      <td data-v="${x.ca_after}">${x.ca_before}→${x.ca_after}</td><td data-v="${x.ca_delta}">${delta(x.ca_delta)}</td><td>${x.pa ?? "?"}</td><td>${x.headroom ?? "?"}</td>
+      ${["technical", "mental", "physical", "goalkeeping", "hidden"].map((g) => `<td data-v="${x.groups[g]}">${delta(x.groups[g])}</td>`).join("")}
+      <td class="l"><span class="chgs">${x.moved.slice(0, 4).map(chgChip).join("")}</span></td></tr>`).join("")}
+    </tbody></table></div><div class="more small muted" data-more="${id}"></div>` : '<div class="empty">None</div>'}</div>`;
+  const all = [...d.improvers, ...d.decliners];
+  view.innerHTML = head + `<div class="card wide">${filterBar(all)}</div>
+    <div class="grid">${table(d.improvers, "Improving", "devUp")}${table(d.decliners, "Declining", "devDown")}</div>`;
   document.querySelectorAll("table.dev").forEach(sortable);
+  const TOP = 15, showAll = new Set();
+  let test = () => true, active = false;
+  const apply = () => ["devUp", "devDown"].forEach((id) => {
+    const t = $("#" + id);
+    if (!t) return;
+    const match = [...t.tBodies[0].rows].filter((r) => test(r));
+    const limit = active || showAll.has(id) ? Infinity : TOP;
+    [...t.tBodies[0].rows].forEach((r) => { r.style.display = "none"; });
+    match.slice(0, limit).forEach((r) => { r.style.display = ""; });
+    const total = t.tBodies[0].rows.length;
+    view.querySelector(`[data-count="${id}"]`).textContent = active ? `· ${match.length} of ${total}` : `· ${total}`;
+    const more = view.querySelector(`[data-more="${id}"]`);
+    more.innerHTML = !active && match.length > TOP
+      ? (showAll.has(id) ? `<button type="button" class="linkbtn" data-toggle="${id}">Show the top ${TOP} only</button>`
+        : `Showing the top ${TOP} of ${match.length}. <button type="button" class="linkbtn" data-toggle="${id}">Show all</button> or filter above.`)
+      : active && !match.length ? "No one matches the filters." : "";
+  });
+  view.querySelector(".grid").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-toggle]");
+    if (!b) return;
+    showAll.has(b.dataset.toggle) ? showAll.delete(b.dataset.toggle) : showAll.add(b.dataset.toggle);
+    apply();
+  });
+  // sorting re-orders the rows, so the top 15 follow the new order
+  document.querySelectorAll("table.dev thead th").forEach((th) => th.addEventListener("click", () => setTimeout(apply)));
+  wireFilters("fm-dev-filter", (t, a) => { test = t; active = a; apply(); });
 }
+
+// one attribute change, as on the player page: the 1–20 value in its colour, with the change beside it
+const attrCls = (v) => (v >= 16 ? "a20" : v >= 13 ? "a15" : v >= 8 ? "a10" : "a5");
+const LOWER_IS_BETTER = new Set(["injury_proneness"]);
+const chgChip = (c) => (c.shown_delta
+  ? `<span class="chg ${(c.shown_delta > 0) !== LOWER_IS_BETTER.has(c.attr) ? "up" : "down"}" title="${esc(label(c.attr))}: ${c.shown_before} → ${c.shown_after} on FM's 1–20 scale">
+      ${esc(label(c.attr))} <span class="v ${attrCls(c.shown_after)}">${c.shown_after}</span><span class="d">${c.shown_delta > 0 ? "▲" : "▼"}${Math.abs(c.shown_delta)}</span></span>`
+  : `<span class="chg raw" title="${esc(label(c.attr))}: ${c.raw_delta > 0 ? "+" : ""}${c.raw_delta} raw, not yet enough to move the 1–20 number (${c.shown_after})">
+      ${esc(label(c.attr))} <span class="${c.raw_delta > 0 ? "up" : "down"}">${c.raw_delta > 0 ? "+" : ""}${c.raw_delta} raw</span></span>`);
 
 const ROLE_KEYS = ["chance_creation", "goal_threat", "finishing", "defensive_work", "ball_security"];
 const roleCell = (v) => (v == null ? '<td class="muted">–</td>'

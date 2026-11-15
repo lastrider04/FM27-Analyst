@@ -48,6 +48,11 @@ For each player you get:
 - appearances, average rating and a form sparkline;
 - value, wage and contract end.
 
+**Filters:** search by name or club, pick an age band, or click positions to show only the players who can play there
+(pick several to combine them). **★ Top 5** shows your five best players right now (highest CA), and **🌱 Most
+promising** your five best prospects (21 or under, highest PA). Those players also carry the ★ or 🌱 next to their
+name. **Clear filters** resets them; your choice is remembered.
+
 Injured players have a 🩹 badge. Click a column header to sort, and click a row to open the player.
 
 ## Player page
@@ -72,10 +77,15 @@ Two players side by side: attributes, CA/PA and their stats. Choose the two play
 Who's improving and who's declining:
 - **The period:** compare **all snapshots**, or the last **30, 90 or 180 game days**. The line under the choices shows which two captures are compared.
 - **Improving** and **Declining** tables. For each player:
+  - age and position(s);
   - CA before → after and the change (Δ CA);
   - PA and **headroom** (PA − CA, their room to grow);
   - the total change in each attribute group: Technical, Mental, Physical, Goalkeeping and Hidden;
-  - **Biggest changes:** the attributes that moved most. Bold means the change shows in the game's 1–20 value; otherwise it's a smaller change underneath.
+  - **Biggest changes:** the attributes that moved most. A green or red outline means the 1–20 value in the game moved:
+    you see the new value in its attribute colour and ▲ or ▼ by how much. A plain one is a smaller **raw** change that
+    hasn't moved the 1–20 number yet. Hover one for the details.
+- **Filters:** the same search, age and position filters as Players. Each table shows the top 15 until you filter, or
+  click **Show all**.
 
 Development needs at least two captures some game time apart.
 

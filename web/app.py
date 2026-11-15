@@ -656,8 +656,13 @@ def dev(days: int | None = None, include: str = "first team,loaned in,youth team
             return {"pair": None, "players": [], "improvers": [], "decliners": []}
         devs = development(con, *pair)
         statuses = tuple(s.strip() for s in include.split(","))
-        up, down = leaderboard(devs, n=15, statuses=statuses)
-        enrich = lambda d: plain(d) | {"groups": {g: d.group_delta(g) for g in GROUPS}}
+        up, down = leaderboard(devs, n=10_000, statuses=statuses)    # all of them: the page shows 15 until you filter
+        from analytics.players import position_string, positions_of, primary_position
+        pos = {r["unique_id"]: positions_of(r) for r in con.execute(
+            "SELECT unique_id, positions FROM player_state WHERE snapshot_id = ?", (pair[1],))}
+        enrich = lambda d: plain(d) | {"groups": {g: d.group_delta(g) for g in GROUPS},
+                                       "position": position_string(pos.get(d.unique_id, {})) or primary_position(pos.get(d.unique_id, {})),
+                                       "primary": primary_position(pos.get(d.unique_id, {}))}
         snaps = {r["id"]: r["game_date"] for r in con.execute("SELECT id, game_date FROM snapshots WHERE id IN (?,?)", pair)}
         return {"pair": {"before": pair[0], "after": pair[1], "before_date": snaps[pair[0]],
                          "after_date": snaps[pair[1]], "days": devs[0].days if devs else 0},

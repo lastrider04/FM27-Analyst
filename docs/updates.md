@@ -2,8 +2,34 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.2b: filters and stars
+A small update to 1.0.2. Update the usual way: quit the app, extract the new version over your existing folder (your
+`data\` folder is kept), and run `install.bat` again.
+
+- **Filters on Players and Development:** search by name or club, an age band (21 and under, 22 to 29, 30 and over),
+  and position chips that show only the players who can play there. Pick several positions to combine them. Your
+  choice is remembered. See [Players](guide/dashboard.md#players).
+- **★ and 🌱 on Players:** a gold star next to your five best players right now (highest CA), and a 🌱 next to your
+  five most promising (21 or under, highest PA). Two chips show only those players.
+- **Development:**
+  - a **Position** column after Age;
+  - **Biggest changes** look like the rest of the app: each attribute's new 1–20 value in its colour with ▲ or ▼, or
+    a plain "+3 raw" when it hasn't moved the 1–20 number yet;
+  - every improver and decliner is there now: the top 15 show until you filter, or click **Show all**.
+- **The AI coach knows more:** your Shortlist (values, contracts, who to go for now), per-90 stats, recent
+  development, values and contracts, and every youth and loaned-out player. Ask "which shortlisted player should I bid
+  for?" or "who's improving fastest?". It also has detail for the Shortlist and Fixtures pages.
+- **Spacing:** the same gap between cards on every page (Development, Per 90 and Shortlist had none).
+- **Remote play, Scroll:** scroll left and right as well as up and down. It starts a little slower so it feels
+  deliberate, speeds up the further you drag from where you started, and keeps scrolling while you hold at the edge.
+- **Overview on the phone:** Team form and Next fixtures scroll sideways instead of cutting off team names, and every
+  name in Alerts lines up.
+- **On the phone:** a little more room in the header; the coach no longer pops the keyboard up when it opens (tap the
+  box to type); and the app no longer zooms in after you type in a box.
 
 ## 1.0.2: out of beta
 FM27 Analyst is out of beta. The big new features are **remote play**: play FM27 from your phone, with the analyst's

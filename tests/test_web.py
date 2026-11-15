@@ -46,6 +46,7 @@ def test_squad_and_player(client):
 def test_development_and_fixtures(client):
     d = client.get("/api/development").json()
     assert d["pair"]["days"] == 30 and d["improvers"][0]["ca_delta"] == 8
+    assert all("position" in x and "primary" in x for x in d["improvers"] + d["decliners"])
     f = client.get("/api/fixtures").json()["fixtures"]
     assert [x["result"] for x in f] == ["W", "W"] and f[0]["venue"] == "A"
 

@@ -28,7 +28,7 @@ Click **Ask the coach** (bottom right, on every page) and type a question, or pi
 - On a player page: *How has he developed, and what should his training focus be?*
 
 How it works:
-- **Page focus:** the coach always sees a summary of the whole squad, plus detail for the page you're on: the player, the match, the comparison or the development period. The panel header shows what it's focused on.
+- **Page focus:** the coach always sees a summary of the whole club (the senior squad with values and contracts, per-90 stats, role scores, youth and loaned-out players, recent development) and your [Shortlist](dashboard.md#shortlist), plus detail for the page you're on: the player, a shortlisted player, the match, the comparison, the development period or fixtures. It can also look up any player at the club or on your shortlist. The panel header shows what it's focused on.
 - **Look-ups:** when it needs more, it fetches a player's full detail or a match's stats by itself. You'll see *"🔎 Looking up …"* while it does, and the look-ups are listed under the answer.
 - **Usage** is shown under each answer: tokens in and out, the cost where the provider reports it (OpenRouter does), or that the answer counts against your ChatGPT plan.
 - **Saved conversations:** **🕘** lists earlier conversations to reopen or delete, and **↺** starts a new one. They're saved per [game snapshot](game-snapshots.md) and survive restarts.
@@ -105,7 +105,7 @@ Any service with an OpenAI-compatible `/v1/chat/completions` endpoint works: ent
 Edit them to change the coach's style or focus, for example *"Always answer in bullet points"* or *"Prefer playing youth players"*. Click **Save instructions**; **Reset to default** restores the built-in version. Your edited version is saved as `data\coach_prompt.md`.
 
 ## What's sent, and privacy
-- **What gets sent:** with each question, the app sends the model a compact summary of your squad (names, positions, condition, form, stats, fixtures and the app's own recommendation), plus detail for the page you're viewing, and any look-ups it makes. Click **ⓘ** in the chat to see exactly what was sent.
+- **What gets sent:** with each question, the app sends the model a compact summary of your club (names, positions, condition, form, stats, per 90s, development, values and contracts, fixtures and the app's own recommendation) and your shortlisted transfer targets, plus detail for the page you're viewing, and any look-ups it makes. Click **ⓘ** in the chat to see exactly what was sent.
 - **Where it goes:** only to the provider you chose. With Ollama or LM Studio, nothing leaves your PC.
 - **How keys are stored:** API keys and ChatGPT sign-in tokens are encrypted with Windows DPAPI, so only your Windows account can decrypt them. They're never shown again or written to the log, and an API key is only sent to the base URL you set.
 

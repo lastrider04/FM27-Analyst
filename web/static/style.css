@@ -462,3 +462,58 @@ table.go td { vertical-align: top; } table.go .sig { white-space: normal; margin
 .poschip { font: inherit; font-size: 13px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
            background: var(--panel2); color: var(--text); cursor: pointer; }
 .poschip:hover { border-color: var(--accent); } .poschip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* 1.0.2b: the same gap between stacked cards on every page (Development, Per 90, Shortlist...) */
+main > .card + .card, main > .card + .grid, main > .grid + .card, main > .grid + .grid { margin-top: 16px; }
+@media (max-width: 760px) { main > .card + .card, main > .card + .grid, main > .grid + .card, main > .grid + .grid { margin-top: 12px; } }
+
+/* search, age and position filters (Players, Development) */
+.fbar { margin-bottom: 8px; }
+.fbar select { padding: 6px 8px; border-radius: 6px; }
+.posfilter { margin-bottom: 12px; }
+.card > .posfilter:last-child { margin-bottom: 0; }
+.poschip .n { opacity: .6; font-size: 12px; margin-left: 2px; }
+.poschip.tagchip { font-weight: 600; }
+.poschip.tagchip + .poschip:not(.tagchip) { margin-left: 10px; }
+.linkbtn { background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--blue); cursor: pointer; }
+.linkbtn:hover { text-decoration: underline; }
+.more { margin-top: 8px; }
+.more:empty { display: none; }
+
+/* best now / most promising */
+.pbadge { font-size: 13px; margin-left: 2px; cursor: help; }
+.pbadge.top { color: #f5c518; text-shadow: 0 0 6px rgba(245, 197, 24, .35); }
+
+/* attribute changes on Development */
+.chgs { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.chg { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+       white-space: nowrap; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); }
+.chg .v { font-weight: 700; }
+.chg .d { font-weight: 700; font-size: 11px; }
+.chg.up { color: var(--text); border-color: color-mix(in srgb, var(--good) 55%, var(--line)); }
+.chg.up .d { color: var(--good); }
+.chg.down { color: var(--text); border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
+.chg.down .d { color: var(--bad); }
+.chg.raw .up, .chg.raw .down { font-size: 11px; }
+table.dev .chgs { min-width: 300px; }
+h2 [data-count] { margin-left: 6px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* phones: a little room in the header and the context strip, and no zooming into text fields */
+@media (max-width: 700px) {
+  header { gap: 12px; padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top)); }
+  .subbar { top: var(--hdr, 56px); padding: 9px 14px; gap: 12px; line-height: 1.35; }
+  .subbar .next { font-size: 12px; }
+  /* iOS zooms in on any field under 16px when it's focused, and stays zoomed */
+  input, select, textarea, .coachform textarea, .filters input#search { font-size: 16px !important; }
+}
+
+/* alerts: the kind column keeps its width so every name lines up, even long ones that wrap */
+.alert .k { flex: 0 0 140px; }
+.alert > a { min-width: 0; }
+/* team form and next fixtures: on a phone the table keeps its columns and scrolls sideways instead of cutting names */
+@media (max-width: 700px) {
+  .alert .k { flex-basis: 118px; }
+  .formscroll { margin: 0 -4px; -webkit-overflow-scrolling: touch; }
+  .formscroll > table.form { min-width: 440px; }
+  .formscroll table.form td.opp { white-space: nowrap; width: 150px; }
+}
