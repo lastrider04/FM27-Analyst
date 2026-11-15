@@ -32,3 +32,16 @@ def test_sideways_wheel(monkeypatch):
     assert sent[2][0] == inputs.HWHEEL and sent[2][1] in (-120, 2**32 - 120)    # a DWORD: -120 may come back unsigned
     c.hwheel(5, 5, 50)
     assert len(sent) == 13                                                     # capped at 10 notches a message
+
+
+def test_controller_defaults_send_only_allowed_keys():
+    """The phone's game-controller code (remote/static/gamepad.js) is loaded by the page, and every key its buttons
+    can send by default is one the PC accepts."""
+    import re
+    from pathlib import Path
+    static = Path(inputs.__file__).parent / "static"
+    assert '<script src="/static/gamepad.js"></script>' in (static / "index.html").read_text(encoding="utf-8")
+    js = (static / "gamepad.js").read_text(encoding="utf-8")
+    keys = set(re.findall(r'"key:([a-z0-9+]+)"', js))
+    assert {"space", "up", "down", "left", "right"} <= keys
+    assert keys <= inputs.KEYS.keys() | inputs.COMBOS.keys()

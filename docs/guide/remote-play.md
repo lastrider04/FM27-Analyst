@@ -76,6 +76,21 @@ To change them, open the analyst's **Remote tab › Shortcut row**: rename, reor
 turns the mouse wheel: drag up or down, or left and right for wide tables; it starts slow, gets faster the further you
 drag, and keeps going while you hold at the edge of the screen), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), **Analyst** and **Alerts**.
 
+**Game controller.** Connect a controller to the phone or tablet (Bluetooth or USB: Xbox, PlayStation, Switch Pro
+and most others) and press any of its buttons. A **Pad** button appears in the tool bar.
+- **Left stick:** moves the cursor (Mouse mode turns on by itself). A light push is slow and precise; a full push
+  crosses the screen in about a second. When you're zoomed in, the picture follows the cursor.
+- **Right stick:** scrolls at the cursor, up and down or left and right. In the App panel it scrolls the panel.
+- **Buttons**, to start with: **A** clicks (hold it and move the stick to drag), **B** is Back, **X** right-clicks,
+  **Y** is Esc, **LB** and **RB** are Squad and Tactics, **LT** and **RT** zoom out and in, **Menu** is Continue,
+  **View** opens the App panel, pressing the left stick fits the screen, and the **d-pad** sends the arrow keys (hold
+  to repeat).
+
+Tap **Pad** to change them: each button can do anything from the tool bar or your shortcut row, or nothing. Press a
+button on the controller and its row lights up. The cursor speed is there too. Your choices are kept on that phone,
+so a phone and a tablet can be set up differently. While the App panel is open, **B** closes it and the other buttons
+leave FM27 alone.
+
 **Video** steps through **Off → Low → Medium → High**: still pictures, then smooth video at 5, 10 or 16 Mbit/s. Medium
 suits most home Wi-Fi.
 
@@ -134,4 +149,7 @@ page open gets the in-page alert instead. Tapping the notification opens remote 
   pictures keep working. Try **Video › Low**.
 - **No notifications:** use the https address, allow notifications for the site (iPhone: from the Home Screen app),
   and check the Remote tab shows "notifications on" for that phone.
+- **No Pad button with a controller connected:** press a button on the controller; browsers only show a controller
+  to a page after that. Check the phone itself sees it (Bluetooth settings). If it still doesn't appear, open remote
+  play on the https (Tailscale) address: some browsers only allow controllers on secure pages.
 - **The picture is black or stale:** FM27 is minimised. Restore its window on the PC.

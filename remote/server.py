@@ -10,7 +10,7 @@ Phone → server (JSON):
   {"t": "view", x, y, w, h, out}           the visible FM27 region and how many device pixels wide it's drawn
   {"t": "ack", "seq"}                      a frame was drawn; at most two frames are in flight
   {"t": "click"|"press"|"drag"|"release"|"move", x, y, [button, double]}
-  {"t": "wheel", x, y, n}  {"t": "hwheel", x, y, n}  {"t": "text", s}  {"t": "key", k}
+  {"t": "wheel", x, y, n}  {"t": "hwheel", x, y, n}   (a game controller on the phone sends these same messages)  {"t": "text", s}  {"t": "key", k}
 Video (Phase 2, WebRTC):
   phone → {"t": "rtc-offer", sdp, type, quality}   server → {"t": "rtc-answer", sdp, type} (or {"t": "rtc-error", msg})
                                                   quality: low / normal / high (5 / 10 / 16 Mbit/s)

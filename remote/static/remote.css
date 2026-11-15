@@ -293,3 +293,26 @@ body.typing #controls, body.pairing #controls { display: none; }
 #picks .qchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 #picks .qchips button { font: inherit; font-size: 12.5px; text-align: left; border: 1px solid var(--line); border-radius: 14px;
   padding: 6px 10px; background: #ffffff0d; color: var(--fg); }
+
+/* Pad: what each game-controller button does, over the picture like the App panel */
+#pad {
+  position: absolute; inset: 0; z-index: 5; overflow-y: auto; overscroll-behavior: contain; background: var(--bg);
+  padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 14px max(14px, env(safe-area-inset-left));
+  touch-action: pan-y;
+}
+#pad[hidden] { display: none; }
+#pad > * { max-width: 520px; margin-left: auto; margin-right: auto; }
+#pad header { display: flex; align-items: center; gap: 8px; }
+#pad h2 { margin: 0 auto 0 0; font-size: 17px; }
+#pad header button { font: inherit; border: 0; border-radius: 8px; background: #ffffff14; color: var(--fg); padding: 7px 12px; min-height: 34px; }
+#pad #pad-close { background: #c8273d; color: #fff; }
+#pad .padnote { margin: 8px auto; font-size: 13px; color: var(--muted); }
+#pad #pad-name { color: var(--fg); }
+#pad .padspeed { display: flex; align-items: center; gap: 10px; margin: 10px auto; font-size: 14px; }
+#pad .padspeed input { flex: 1; accent-color: var(--accent); }
+#pad table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+#pad th { text-align: left; font-weight: 600; font-size: 14px; padding: 6px 8px; white-space: nowrap; border-radius: 8px 0 0 8px; background: #ffffff08; }
+#pad td { padding: 4px 6px; border-radius: 0 8px 8px 0; background: #ffffff08; width: 60%; }
+#pad tr.hit th, #pad tr.hit td { background: #3d7cf540; transition: background .2s; }
+#pad select { width: 100%; font: inherit; font-size: 16px; color: var(--fg); background: var(--bar); border: 1px solid var(--line);
+              border-radius: 7px; padding: 6px 8px; }

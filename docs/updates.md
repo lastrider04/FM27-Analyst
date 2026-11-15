@@ -2,9 +2,20 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.2c: play with a controller](#102c-play-with-a-controller) (15 November 2026)
 - [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.2c: play with a controller
+Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),
+and run `install.bat` again.
+
+- **Remote play with a game controller:** connect a controller (Xbox, PlayStation, Switch Pro and most others) to
+  your phone or tablet and play FM27 from the sofa. The left stick moves the cursor, the right stick scrolls, **A**
+  clicks (hold to drag), **B** goes Back and **Menu** is Continue. Tap the new **Pad** button to choose what every
+  button does, from the tool bar and your shortcut row, and set the cursor speed. See
+  [Game controller](guide/remote-play.md#on-the-phone).
 
 ## 1.0.2b: filters and stars
 A small update to 1.0.2. Update the usual way: quit the app, extract the new version over your existing folder (your
