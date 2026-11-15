@@ -2,10 +2,22 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.2d: more room for FM27](#102d-more-room-for-fm27) (15 November 2026)
 - [1.0.2c: play with a controller](#102c-play-with-a-controller) (15 November 2026)
 - [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.2d: more room for FM27
+Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),
+and run `install.bat` again.
+
+- **Remote play, the tool bar folds away:** FM27 gets more of the screen. Tap **Tools** (« at the end of the shortcut
+  row) to open the tool bar and **Hide** (») to close it; it also folds by itself after 10 seconds untouched (not while
+  Right, Drag or Scroll is on). See [The tool bar](guide/remote-play.md#on-the-phone).
+- **With a controller, the full screen is FM27:** both bars fold away and a small **«** tab sits on the right edge.
+  It fades after a few seconds; tap it to bring back the tool bar, or drag it up or down if it's in the way. A
+  controller button can show or hide the tool bar too: pick **Show / hide tool bar** under **Pad**.
 
 ## 1.0.2c: play with a controller
 Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),

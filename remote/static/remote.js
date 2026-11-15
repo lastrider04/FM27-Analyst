@@ -775,6 +775,9 @@ const ICONS = {
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/>',
   fullscreen: '<path d="M4 9V4h5M4 4l6 6M20 9V4h-5M20 4l-6 6M4 15v5h5M4 20l6-6M20 15v5h-5M20 20l-6-6"/>',
   exitfull: '<path d="M10 4v6H4M4 4l6 6M14 4v6h6M20 4l-6 6M10 20v-6H4M4 20l6-6M14 20v-6h6M20 20l-6-6"/>',
+  more: '<path d="M12 6l-6 6 6 6M18 6l-6 6 6 6"/>',
+  tools: '<path d="M21 4v16M11 6l-6 6 6 6M17 6l-6 6 6 6"/>',      // « against the edge: the tool bar slides out
+  less: '<path d="M3 4v16M7 6l6 6-6 6M13 6l6 6-6 6"/>',
 };
 function iconSvg(name) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -824,8 +827,9 @@ function renderShortcuts(list) {
     b.onclick = () => send({ t: "key", k: s.key });
     row.append(b);
   }
-  row.append(barButton("App", "picks", () => openPicks(), "The analyst app: next match, squad and fixtures"),
-);
+  const more = barButton("Tools", "tools", () => setBarOpen(!barOpen), "Show or hide the tool bar");
+  more.id = "b-more";
+  row.append(barButton("App", "picks", () => openPicks(), "The analyst app: next match, squad and fixtures"), more);
   markBusy();
 }
 
@@ -1402,6 +1406,93 @@ $("b-install").onclick = async () => {
 window.addEventListener("appinstalled", () => { $("b-install").hidden = true; });
 $("b-mode").onclick = () => setMouseMode(!mouseMode);
 $("b-keys").onclick = () => { kbd.value = ""; kbd.focus(); if (document.activeElement === kbd) setTyping(true); };
+
+// ---- folding the tool bar away ----
+// The tool bar (Touch, Keys … Alerts) folds away to give FM27 more room: « at the end of the shortcut row opens it,
+// » at its start closes it, and it folds again by itself after BAR_IDLE_MS untouched. With a game controller both
+// rows fold away and a small « tab on the right edge opens just the tool bar; drag the tab up or down if it's in
+// the way. It fades until you need it.
+const BAR_IDLE_MS = 10000, TAB_FADE_MS = 2500, TAB_H = 44, TAB_KEY = "fm27remote.tab";
+let barOpen = false, padHide = false, barTimer = 0, tabTimer = 0, tabY = 0.45, tabDrag = null;
+try { const v = parseFloat(localStorage.getItem(TAB_KEY)); if (v >= 0 && v <= 1) tabY = v; } catch { /* storage blocked */ }
+const lessBtn = barButton("Hide", "less", () => setBarOpen(false), "Hide the tool bar");
+lessBtn.id = "b-less";
+$("bar").prepend(lessBtn);
+const barTab = document.createElement("button");
+barTab.id = "bar-tab"; barTab.type = "button"; barTab.hidden = true;
+barTab.title = "Show the tool bar (drag up or down to move this)";
+barTab.append(iconSvg("more"));
+stage.append(barTab);
+
+function setBarOpen(open) {
+  barOpen = open;
+  document.body.classList.toggle("bar-shut", !open);
+  if (open) armBar(); else clearTimeout(barTimer);
+  syncTab();
+}
+function armBar() {                      // fold again after a while, unless a Right/Drag/Scroll toggle or Pad is on
+  clearTimeout(barTimer);
+  barTimer = setTimeout(() => {
+    const busy = modes.right || modes.drag || modes.scroll || ($("pad") && !$("pad").hidden);
+    if (busy) armBar(); else setBarOpen(false);
+  }, BAR_IDLE_MS);
+}
+$("bar").addEventListener("pointerdown", () => { if (barOpen) armBar(); }, true);
+$("bar").addEventListener("scroll", () => { if (barOpen) armBar(); }, { passive: true });
+function setPadHide(on) {                // gamepad.js: a controller connected (true) or went away (false)
+  if (padHide === on) return;
+  padHide = on;
+  document.body.classList.toggle("pad-hide", on);
+  setBarOpen(false);
+}
+function syncTab() {
+  barTab.hidden = !(padHide && !barOpen);
+  if (!barTab.hidden) { placeTab(); wakeTab(); }
+}
+function wakeTab() {
+  barTab.classList.remove("faded");
+  clearTimeout(tabTimer);
+  tabTimer = setTimeout(() => barTab.classList.add("faded"), TAB_FADE_MS);
+}
+function placeTab() {
+  const room = Math.max(0, stage.clientHeight - TAB_H - 16);
+  barTab.style.top = Math.round(8 + tabY * room) + "px";
+}
+barTab.addEventListener("pointerdown", (e) => {
+  barTab.setPointerCapture(e.pointerId);
+  tabDrag = { y: e.clientY, top: barTab.offsetTop, moved: false };
+  wakeTab();
+});
+barTab.addEventListener("pointermove", (e) => {
+  if (!tabDrag) return;
+  const dy = e.clientY - tabDrag.y;
+  if (Math.abs(dy) > 6) tabDrag.moved = true;
+  if (!tabDrag.moved) return;
+  const room = Math.max(1, stage.clientHeight - TAB_H - 16);
+  tabY = Math.min(1, Math.max(0, (tabDrag.top + dy - 8) / room));
+  placeTab(); wakeTab();
+});
+// Open on the tab's own click, not on pointerup: opening at pointerup puts the tool bar under the finger and the
+// click that follows lands on whichever of its buttons is there (Keys, Hide …). For a moment after opening, the bar
+// ignores taps too, in case a browser sends that click late.
+let tabMoved = false, barOpenedAt = 0;
+barTab.addEventListener("pointerup", () => {
+  tabMoved = !!tabDrag?.moved;
+  tabDrag = null;
+  if (tabMoved) { try { localStorage.setItem(TAB_KEY, tabY.toFixed(3)); } catch { /* storage blocked */ } }
+});
+barTab.addEventListener("pointercancel", () => { tabDrag = null; tabMoved = true; });
+barTab.addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (tabMoved) { tabMoved = false; return; }          // that was a drag: just move the tab
+  barOpenedAt = performance.now();
+  setBarOpen(true);
+});
+$("controls").addEventListener("click", (e) => {
+  if (performance.now() - barOpenedAt < 400) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+new ResizeObserver(() => { if (!barTab.hidden) placeTab(); }).observe(stage);
+setBarOpen(false);
 
 // While the phone keyboard is up the bars are hidden: there's no room for them, and on Android the shrunken page
 // would otherwise flip to the landscape layout. "Hide keyboard" (or the phone's own back/close) brings them back.

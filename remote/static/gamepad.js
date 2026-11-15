@@ -4,6 +4,7 @@
 //   left stick     moves the cursor (Mouse mode turns on by itself); a light push is slow, a full push is fast
 //   right stick    scrolls at the cursor, up/down and left/right (in the App panel it scrolls the panel)
 //   buttons        each does one thing from the tool bar or the shortcut row: change them under "Pad"
+//   the bars       fold away while a controller is connected; the « tab on the right edge shows the tool bar
 //                  (A clicks, held it drags; B is FM27's Back; Menu is Continue; the d-pad sends the arrow keys …)
 //
 // Loaded after remote.js and uses its globals (send, cursor, setMouseMode, shortcutList …). The button choices and
@@ -30,7 +31,7 @@
     ["forward", "Forward"], ["escape", "Esc"], ["key:enter", "Enter"], ["key:up", "Arrow up"],
     ["key:down", "Arrow down"], ["key:left", "Arrow left"], ["key:right", "Arrow right"], ["key:tab", "Tab"],
     ["key:pageup", "Page up"], ["key:pagedown", "Page down"], ["zoomin", "Zoom in"], ["zoomout", "Zoom out"],
-    ["fit", "Fit"], ["app", "App panel"], ["mode", "Touch / Mouse"], ["video", "Video"],
+    ["fit", "Fit"], ["app", "App panel"], ["bars", "Show / hide tool bar"], ["mode", "Touch / Mouse"], ["video", "Video"],
   ];
   const REPEAT = new Set(["key:up", "key:down", "key:left", "key:right", "key:tab", "key:pageup", "key:pagedown"]);
   const REPEAT_DELAY = 380, REPEAT_EVERY = 110;
@@ -96,6 +97,7 @@
       case "escape": send({ t: "key", k: "escape" }); break;
       case "fit": fit(); break;
       case "app": openPicks(); break;
+      case "bars": setBarOpen(!barOpen); break;
       case "mode": setMouseMode(!mouseMode); break;
       case "video": setVideoQuality(nextVideoQuality()); break;
       // zoomin / zoomout are held: see tick()
@@ -239,9 +241,10 @@
 
   function connected(e) {
     padBtn.hidden = false;
+    setPadHide(true);                          // both bars fold away; the « tab on the right edge brings the tool bar
     markOverflow($("bar"));
     const name = e?.gamepad?.id?.replace(/\s*\(.*\)\s*$/, "") || "Controller";
-    status(`${name} connected: left stick moves the cursor, A: ${label(cfg.map[0]).toLowerCase()}. Tap Pad to change buttons`);
+    status(`${name} connected: left stick moves the cursor, A: ${label(cfg.map[0]).toLowerCase()}. The « tab on the right shows the tool bar`);
     if (padPanel && !padPanel.hidden) fillPanel();
     start();
   }
@@ -249,6 +252,7 @@
   window.addEventListener("gamepaddisconnected", () => {
     if (pad()) return;
     releaseAll();
+    setPadHide(false);
     status("Controller disconnected");
     if (padPanel && !padPanel.hidden) fillPanel();
   });

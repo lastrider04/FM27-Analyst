@@ -75,9 +75,13 @@ To change them, open the analyst's **Remote tab › Shortcut row**: rename, reor
 **Right** (the next tap is a right-click), **Drag** (for moving players on the tactics pitch), **Scroll** (one finger
 turns the mouse wheel: drag up or down, or left and right for wide tables; it starts slow, gets faster the further you
 drag, and keeps going while you hold at the edge of the screen), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), **Analyst** and **Alerts**.
+It's folded away to give FM27 more room: tap **Tools** (« at the end of the shortcut row) to open it and **Hide** (»)
+to close it. It folds again by itself after 10 seconds untouched, unless Right, Drag or Scroll is on.
 
 **Game controller.** Connect a controller to the phone or tablet (Bluetooth or USB: Xbox, PlayStation, Switch Pro
-and most others) and press any of its buttons. A **Pad** button appears in the tool bar.
+and most others) and press any of its buttons. Both bars fold away so FM27 fills the screen, and a small **«** tab sits on the right
+edge. It fades after a few seconds; tap it to bring back just the tool bar (with **Pad**, below), or drag it up or
+down if it's in the way. The bars come back when the controller disconnects.
 - **Left stick:** moves the cursor (Mouse mode turns on by itself). A light push is slow and precise; a full push
   crosses the screen in about a second. When you're zoomed in, the picture follows the cursor.
 - **Right stick:** scrolls at the cursor, up and down or left and right. In the App panel it scrolls the panel.
@@ -86,7 +90,8 @@ and most others) and press any of its buttons. A **Pad** button appears in the t
   **View** opens the App panel, pressing the left stick fits the screen, and the **d-pad** sends the arrow keys (hold
   to repeat).
 
-Tap **Pad** to change them: each button can do anything from the tool bar or your shortcut row, or nothing. Press a
+Tap **Pad** to change them: each button can do anything from the tool bar or your shortcut row, show or hide the
+tool bar, or nothing. Press a
 button on the controller and its row lights up. The cursor speed is there too. Your choices are kept on that phone,
 so a phone and a tablet can be set up differently. While the App panel is open, **B** closes it and the other buttons
 leave FM27 alone.
