@@ -122,6 +122,7 @@ def build_context(con: sqlite3.Connection, club_id: int, page: str = "overview")
     out.append("ALERTS\n" + ("\n".join(f"- {a.kind}: {a.name} ({a.detail})" for a in al) or "none"))
 
     out.append(_shortlist_block(con, club_id))
+    out.append(_tactical_block(con))
 
     summary, ml = last_match(con, club_id)
     if summary:
@@ -193,6 +194,33 @@ def _shortlist_block(con, club_id: int) -> str:
             "is since tracking began; fit = where their CA would rank among your first team at their best position; "
             "go-now reasons are the app's rules)\n" + _table(SL_HEAD, [_sl_row(p) for p in d["players"]])
             + "\nGO FOR THEM NOW (the app's list): " + (", ".join(go) or "nobody right now"))
+
+
+def _tactical_block(con) -> str:
+    """FM27's Tactical Effectiveness for each tactic at the last reading (the game's own 0-100 values)."""
+    from analytics.tactical import latest
+    try:
+        d = latest(con)
+    except sqlite3.Error:
+        return ""
+    if not d["sets"]:
+        return ""
+    parts = []
+    for n, s in enumerate(d["sets"]):
+        t = s["team"]
+        parts.append(
+            f"Tactic {chr(65 + n)} (tactic complexity {s['tactic_complexity']}, read {s['last_seen']}, next opponent "
+            f"{s['opponent'] or '?'}): team overall {_f(t['overall'])}, understanding {_f(t['understanding'])}, buy-in "
+            f"{_f(t['buy_in'])}, ability {_f(t['ability'])}, next match {_f(t['next_match'])}, comprehension "
+            f"{_f(t['comprehension'])}; weakest areas: "
+            + ", ".join(f"{a['label']} {_f(a['value'])}" for a in sorted(t["areas"], key=lambda a: a["value"])[:3]) + "\n"
+            + _table(["Player", "Overall", "Underst.", "Compreh.", "Ability", "Buy-in", "Next", "Weakest area"],
+                     [[p["name"] or "?", p["overall"], p["understanding"], p["comprehension"], p["ability"], p["buy_in"],
+                       p["next_match"], min(p["areas"], key=lambda a: a["value"])["label"]
+                       + f" {min(a['value'] for a in p['areas'])}"] for p in s["players"]]))
+    return ("TACTICAL EFFECTIVENESS (FM27's own values 0-100, read from the game; overall = 50% tactical understanding "
+            "+ 20% buy-in + 15% player ability + 15% next-match preparation; comprehension = tactical ability vs the "
+            "tactic's complexity for his role)\n" + "\n".join(parts))
 
 
 def _shortlist_focus(con, club_id: int, uid: int) -> str:
@@ -309,6 +337,9 @@ def _focus(con, club_id: int, page: str, data: dict) -> str:
                 f = _shortlist_focus(con, club_id, int(args[0]))
                 return ("PAGE IN VIEW: shortlisted player page\n" + f) if f else "PAGE IN VIEW: shortlist"
             return "PAGE IN VIEW: the Shortlist (the SHORTLIST section above is everything on it)"
+        if name == "tactical":
+            who = f" for player {args[0]}" if args else ""
+            return f"PAGE IN VIEW: Tactical Effectiveness{who} (the TACTICAL EFFECTIVENESS section above has the values)"
         if name == "per90":
             return "PAGE IN VIEW: Per 90 (role scores, goalkeepers and the PER 90 table above)"
         if name == "fixtures":

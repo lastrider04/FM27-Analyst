@@ -2,11 +2,27 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.3: Tactical Effectiveness](#103-tactical-effectiveness) (17 November 2026)
 - [1.0.2d: more room for FM27](#102d-more-room-for-fm27) (15 November 2026)
 - [1.0.2c: play with a controller](#102c-play-with-a-controller) (15 November 2026)
 - [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.3: Tactical Effectiveness
+Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),
+and run `install.bat` again.
+
+- **Works with the FM27 update of 17 November.** Match ratings read wrongly on the new game build; they're right again.
+- **Tactical Effectiveness, the new Tactics page:** FM27's own TE numbers for each of your tactics. You get the team
+  overall, its four parts (tactical understanding 50%, buy-in 20%, player ability 15%, next match 15%) and
+  comprehension. You also get the eight tactical areas, your weakest links, and a table of every player in the XI.
+  Click a player for all 17 factors, the same ones as his Development › Tactical Effectiveness screen in the game. See
+  [Tactics](guide/dashboard.md#tactics).
+- **How it's read:** FM27 only works TE out when you look at it. Open **Training › Tactical Effectiveness** in the game,
+  then press **Read now** on the Tactics page. Captures also pick it up whenever it's there, and each new reading is
+  kept, so you can follow it over time.
+- **AI coach:** it now sees Tactical Effectiveness too. Ask it who is holding your tactic back.
 
 ## 1.0.2d: more room for FM27
 Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),

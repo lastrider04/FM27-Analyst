@@ -727,6 +727,49 @@ def shortlist_one(unique_id: int):
         con.close()
 
 
+@app.get("/api/tactical")
+def tactical_all():
+    from analytics.tactical import latest
+    con = db()
+    try:
+        return plain(latest(con))
+    finally:
+        con.close()
+
+
+@app.get("/api/tactical/{unique_id}")
+def tactical_one(unique_id: int):
+    from analytics.tactical import player
+    con = db()
+    try:
+        p = player(con, unique_id)
+        if not p:
+            raise HTTPException(404, "no Tactical Effectiveness reading for this player yet")
+        return plain(p)
+    finally:
+        con.close()
+
+
+_tactical_lock = threading.Lock()
+
+
+@app.post("/api/tactical/read")
+def tactical_read():
+    """Read Tactical Effectiveness now (after opening a TE screen in FM27), without a full capture."""
+    from capture.snapshot import capture_tactical
+    c = club()
+    if c is None:
+        raise HTTPException(409, "choose your club first")
+    if not _tactical_lock.acquire(blocking=False):
+        raise HTTPException(409, "already reading")
+    try:
+        return capture_tactical(c)
+    except Exception as e:
+        raise HTTPException(503, f"couldn't read the game: {e}")
+    finally:
+        _tactical_lock.release()
+
+
 @app.get("/api/fixtures")
 def fixtures(since: str | None = None):
     con = db()

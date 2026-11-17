@@ -10,6 +10,7 @@ Every page reads from your captured history, so it works even when FM27 isn't ru
 - [Compare](#compare)
 - [Development](#development)
 - [Shortlist](#shortlist)
+- [Tactics](#tactics)
 - [Per 90](#per-90)
 - [Fixtures and match reports](#fixtures-and-match-reports)
 - [Ratings colours](#ratings-colours)
@@ -121,6 +122,34 @@ this the first time you open it; after that it's in the ⓘ next to the title.
 
 The history starts at the first capture after a player joins the shortlist, and builds up with every capture after
 that. Finding the shortlist takes a few extra seconds the first time after FM27 starts.
+
+## Tactics
+FM27's **Tactical Effectiveness** (TE): how ready your XI is to play each of your tactics. These are the game's own
+numbers (0 to 100). The game draws each one as a dial of value ÷ 10, so 76 shows as 7 in FM27.
+
+**FM27 only works TE out when you look at it.** Open **Training › Tactical Effectiveness** (or a player's **Development ›
+Tactical Effectiveness**) in the game, then press **Read now** on this page. Captures also pick it up whenever the game
+has it. A reading that hasn't changed isn't stored again, so the history only grows when something moves.
+
+- **Tactic A / B:** one tab per tactic the game worked TE out for. The number on each tab is its team overall.
+- **The tiles:** the team overall and its four parts, with their weights in the overall: **tactical understanding**
+  (50%), **buy-in** (20%), **player ability** (15%) and **next match** (15%). **Comprehension** is shown as well. Each
+  is the average over the XI.
+- **Areas:** the eight tactical areas, four in possession and four out of possession. Tactical understanding is their
+  average.
+- **Weakest links:** the four lowest players, and the part that holds each one back most.
+- **Players:** every player in the XI with all five values; click a column to sort, or a player for his page.
+- **Player page:** the same breakdown as his Development › Tactical Effectiveness screen in the game, with each part's
+  factors:
+  - *Tactical understanding:* each of the eight areas;
+  - *Comprehension:* tactical ability and how complex the tactic is for his role;
+  - *Player ability:* capability and role suitability;
+  - *Buy-in:* managerial support, relationships (teammates and staff) and manager tendencies;
+  - *Next match:* the opposition report, his knowledge of the opposition, and his readiness.
+
+  Once there are readings on different days, a chart shows how they change.
+
+The first reading after FM27 starts takes about 10 seconds; later ones take about 5.
 
 ## Per 90
 ![Per 90](../screenshots/06-per90.png)

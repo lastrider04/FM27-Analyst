@@ -18,6 +18,7 @@ from reader.fixtures import read_club_names, read_fixtures, read_upcoming
 from reader.matches import game_date, link_fixtures, read_matches
 from reader.people import Player, read_club_players, read_person_names, read_player
 from reader.shortlist import SHORTLIST_NAME, read_shortlist
+from reader.tactical import read_tactical
 from reader.process import GameProcess
 from reader.profile import load_profile
 from store.db import COUNTERS, connect, lineup_key, stored_links, upsert_fixture
@@ -83,6 +84,42 @@ def read_shortlist_players(proc: GameProcess, profile: dict) -> dict:
     return dict(name=SHORTLIST_NAME, found=True, players=out)
 
 
+def read_tactical_sets(proc: GameProcess, players: list[Player], profile: dict) -> list[dict]:
+    """The Tactical Effectiveness sets in memory for these players, JSON-ready (raw as base64, pointers zeroed)."""
+    refs = {p.address: p.unique_id for p in players if p.address}
+    out = []
+    for s in read_tactical(proc, refs, profile):
+        out.append(dict(opponent_club_id=s["opponent_club_id"], players=[
+            dict(slot=q["slot"], unique_id=q["uid"],
+                 raw=base64.b64encode(bytes(16) + q["raw"][16:0x40]).decode()) for q in s["players"]]))
+    return out
+
+
+def store_tactical(con: sqlite3.Connection, sets: list[dict] | None, game_date: str, sid: int | None,
+                   taken_at: str) -> int:
+    """Store TE sets not seen before (by content); returns how many were new."""
+    import hashlib
+    from analytics.tactical import compute
+    new = 0
+    for s in sets or []:
+        sig = hashlib.sha1(json.dumps([s["opponent_club_id"], [(q["slot"], q["unique_id"], q["raw"])
+                                                               for q in s["players"]]]).encode()).hexdigest()
+        row = con.execute("SELECT id FROM tactical_sets WHERE signature = ?", (sig,)).fetchone()
+        if row:
+            con.execute("UPDATE tactical_sets SET last_seen = ?, last_snapshot = COALESCE(?, last_snapshot), "
+                        "taken_at = ? WHERE id = ?", (game_date, sid, taken_at, row[0]))
+            continue
+        vals = [(q, compute(base64.b64decode(q["raw"]))["overall"]) for q in s["players"]]
+        cur = con.execute("INSERT INTO tactical_sets (signature, first_seen, last_seen, first_snapshot, last_snapshot,"
+                          " taken_at, opponent_club_id, n_players, overall) VALUES (?,?,?,?,?,?,?,?,?)",
+                          (sig, game_date, game_date, sid, sid, taken_at, s["opponent_club_id"], len(vals),
+                           round(sum(v for _, v in vals) / len(vals), 1) if vals else None))
+        con.executemany("INSERT INTO tactical_players VALUES (?, ?, ?, ?, ?)",
+                        [(cur.lastrowid, q["slot"], q["unique_id"], base64.b64decode(q["raw"]), v) for q, v in vals])
+        new += 1
+    return new
+
+
 def read_snapshot(proc: GameProcess, club_id: int,
                   known_links: dict[str, tuple[str, int, int]] | None = None) -> dict:
     """Read everything for one capture into a plain dict.
@@ -106,6 +143,11 @@ def read_snapshot(proc: GameProcess, club_id: int,
         shortlist = read_shortlist_players(proc, profile)
     except Exception:            # a nice-to-have: never fail a capture over it (and leave stored data alone)
         shortlist = None
+
+    try:
+        tactical = read_tactical_sets(proc, players, profile)
+    except Exception:            # a nice-to-have: never fail a capture over it
+        tactical = None
 
     known_links = known_links or {}
     by_fixture = {(f.date.isoformat(), f.home_id, f.away_id): f for f in fixtures}
@@ -169,6 +211,7 @@ def read_snapshot(proc: GameProcess, club_id: int,
                | {s[k] for s in (shortlist or {}).get("players", []) for k in ("at_club_id", "contract_club_id")}},
         players=[{**_player_dict(p), "status": _status(p, club_id)} for p in players],
         shortlist=shortlist,
+        tactical=tactical,
         fixtures=fixture_dicts,
         upcoming=upcoming_dicts,
         matches=match_dicts,
@@ -215,6 +258,7 @@ def store_snapshot(con: sqlite3.Connection, snap: dict) -> tuple[int, int]:
         for f in snap["upcoming"]:
             upsert_fixture(con, f, sid)
     store_shortlist(con, snap.get("shortlist"), sid)
+    store_tactical(con, snap.get("tactical"), snap["game_date"], sid, snap["taken_at"])
     new = store_matches(con, snap, sid)
     con.execute("UPDATE snapshots SET n_new_matches = ? WHERE id = ?", (new, sid))
     con.commit()
@@ -321,6 +365,26 @@ class CaptureResult:
     new_save: bool = False            # this capture didn't match any known save: a separate history was started
     rewound_from: str | None = None   # game date went back (an older save file of this career was loaded)
     backup: str | None = None         # today's automatic backup, if this capture made it
+
+
+def capture_tactical(club_id: int) -> dict:
+    """Read only Tactical Effectiveness (quicker than a full capture) into the active save's database.
+
+    For use straight after the TE screens were opened in the game. Stored against the latest snapshot's save."""
+    from store import careers
+    careers.activate()
+    with GameProcess() as proc:
+        profile = load_profile(proc.build_id())
+        today = _iso(game_date(proc, profile))
+        players = read_club_players(proc, club_id, profile)
+        sets = read_tactical_sets(proc, players, profile)
+    con = connect(app_config.DB_PATH)
+    try:
+        new = store_tactical(con, sets, today, None, dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"))
+        con.commit()
+    finally:
+        con.close()
+    return {"found": len(sets), "new": new, "game_date": today}
 
 
 def capture(club_id: int) -> CaptureResult:

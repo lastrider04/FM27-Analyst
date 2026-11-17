@@ -1978,9 +1978,147 @@ async function shortlistPlayerPage(uid) {
   chart($("#radar"), radarCfg(RADAR_KEYS[isGK ? "gk" : "outfield"], [{ label: p.name, attrs: flat }]));
 }
 
+// ------------------------------------------------------------------ tactical effectiveness
+// FM27's Tactical Effectiveness, rebuilt from what the game keeps in memory after it has worked TE out.
+const TE_HOWTO = `FM27 only works Tactical Effectiveness out when you look at it. Open <b>Training › Tactical Effectiveness</b>
+  (or a player's <b>Development › Tactical Effectiveness</b>) in the game, then press <b>Read now</b> here; captures also
+  pick it up whenever it's in memory. Values are the game's own (0–100); the game draws each as a dial of value ÷ 10.`;
+const teColor = (v) => (v >= 85 ? "var(--good)" : v >= 65 ? "var(--ok)" : "var(--bad)");
+const teCell = (v) => `<td data-v="${v}"><div class="tecell"><b>${v}</b>${bar(v, teColor(v))}</div></td>`;
+const teRow = (label, v, note = "", tip = "", color = null) => `<div class="terow"${tip ? ` title="${esc(tip)}"` : ""}><span class="tel">${label}</span>
+  <span class="tebar">${bar(v, color || teColor(v))}</span><b class="tev">${v}</b>${note ? `<span class="muted small">${note}</span>` : ""}</div>`;
+const teName = (i) => `Tactic ${String.fromCharCode(65 + i)}`;
+let TE_TAB = 0;
+
+async function teReadNow(btn) {
+  btn.disabled = true;
+  const was = btn.textContent;
+  btn.textContent = "Reading…";
+  try {
+    const r = await api("/api/tactical/read", { method: "POST" });
+    toast(r.found ? `Read ${r.found} tactic${r.found === 1 ? "" : "s"} (${r.new} new)`
+      : "Nothing in memory: open a Tactical Effectiveness screen in FM27 first", !r.found);
+    route();
+  } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = was; }
+}
+
+async function tacticalPage() {
+  const d = await api("/api/tactical");
+  const head = `<div class="cardhead">${h2i("Tactical Effectiveness", TE_HOWTO)}
+    <div><button class="btn" id="teRead">Read now</button></div></div>`;
+  if (!d.sets.length) {
+    view.innerHTML = `<div class="card wide">${head}<p class="muted">${TE_HOWTO}</p></div>
+      <div class="card empty">No Tactical Effectiveness reading yet.</div>`;
+    $("#teRead").addEventListener("click", (e) => teReadNow(e.target));
+    return;
+  }
+  if (TE_TAB >= d.sets.length) TE_TAB = 0;
+  const s = d.sets[TE_TAB], t = s.team;
+  const tabs = d.sets.length > 1 ? `<div class="tabs">${d.sets.map((x, i) => `<button class="tab ${i === TE_TAB ? "on" : ""}" data-i="${i}"
+    title="Tactic complexity ${x.tactic_complexity}">${teName(i)} · ${num(x.team.overall, 0)}</button>`).join("")}</div>` : "";
+  const ps = s.players;
+  const hist = d.history.filter((h) => h.tactic_complexity === s.tactic_complexity);
+  const parts = [["understanding", "understanding"], ["buy_in", "buy-in"], ["ability", "ability"], ["next_match", "next match"], ["comprehension", "comprehension"]];
+  view.innerHTML = `<div class="grid">
+    <div class="card wide">${head}${tabs}
+      <div class="muted">Read ${fmtDate(s.last_seen)}${s.opponent ? ` · next opponent ${esc(s.opponent)}` : ""} · tactic complexity ${s.tactic_complexity}
+        ${info("The tactic's own complexity as the game stores it (higher = harder to learn). Each player's complexity also depends on his role.")}</div>
+      <div class="kpis tiles" style="margin-top:12px">
+        ${kpi(num(t.overall, 0), "overall", t.overall / 100, teColor(t.overall))}
+        ${kpi(num(t.understanding, 0), "tactical understanding · 50%", t.understanding / 100, teColor(t.understanding))}
+        ${kpi(num(t.buy_in, 0), "buy-in · 20%", t.buy_in / 100, teColor(t.buy_in))}
+        ${kpi(num(t.ability, 0), "player ability · 15%", t.ability / 100, teColor(t.ability))}
+        ${kpi(num(t.next_match, 0), "next match · 15%", t.next_match / 100, teColor(t.next_match))}
+        ${kpi(num(t.comprehension, 0), "comprehension", t.comprehension / 100, teColor(t.comprehension))}
+      </div></div>
+    <div class="card">${h2i("Areas", "Team average per tactical area. The first four are in possession, the last four out of possession. "
+      + "Tactical Understanding is their average.")}
+      <div class="tesub">In possession</div>${t.areas.filter((a) => a.phase === "ip").map((a) => teRow(a.label, Math.round(a.value))).join("")}
+      <div class="tesub">Out of possession</div>${t.areas.filter((a) => a.phase === "oop").map((a) => teRow(a.label, Math.round(a.value))).join("")}</div>
+    <div class="card">${h2i("Weakest links", "The lowest overall TE in this XI, and the part that holds each back most.")}
+      ${[...ps].sort((a, b) => a.overall - b.overall).slice(0, 4).map((p) => {
+        const low = [...parts].sort((a, b) => p[a[0]] - p[b[0]])[0];
+        return `<div class="terow clickrow" data-href="tactical/${p.unique_id}"><span class="tel"><a href="#tactical/${p.unique_id}">${esc(p.name || "?")}</a></span>
+          <span class="tebar">${bar(p.overall, teColor(p.overall))}</span><b class="tev">${p.overall}</b><span class="muted small">lowest: ${low[1]} ${p[low[0]]}</span></div>`;
+      }).join("")}</div>
+    <div class="card wide">${h2i("Players", "Each player's TE for this tactic, in the game's order (XI slots). Click a player for every factor.")}
+      <div class="scroll"><table class="te"><thead><tr><th>Player</th><th>Overall</th><th>Understanding</th><th>Comprehension</th>
+        <th>Ability</th><th>Buy-in</th><th>Next match</th></tr></thead><tbody>
+      ${ps.map((p) => `<tr class="clickrow" data-href="tactical/${p.unique_id}"><td>${esc(p.name || "?")}</td>
+        ${teCell(p.overall)}${teCell(p.understanding)}${teCell(p.comprehension)}${teCell(p.ability)}${teCell(p.buy_in)}${teCell(p.next_match)}</tr>`).join("")}
+      </tbody></table></div></div>
+    ${hist.length > 1 ? `<div class="card wide">${h2i("Overall over time", "Team overall TE at each reading of this tactic.")}<canvas id="teHist"></canvas></div>` : ""}
+  </div>`;
+  $("#teRead").addEventListener("click", (e) => teReadNow(e.target));
+  view.querySelectorAll(".tabs .tab").forEach((b) => b.addEventListener("click", () => { TE_TAB = +b.dataset.i; tacticalPage(); }));
+  sortable(view.querySelector("table.te"));
+  clickableRows(view);
+  view.querySelectorAll("div.clickrow").forEach((r) => r.addEventListener("click", (e) => { if (!e.target.closest("a")) location.hash = r.dataset.href; }));
+  if (hist.length > 1) chart($("#teHist"), { type: "line", data: { labels: hist.map((h) => h.first_seen),
+    datasets: [{ label: "Overall", data: hist.map((h) => h.overall), borderColor: CT.accent, backgroundColor: CT.accent, tension: .2 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK, suggestedMin: 50, max: 100 } } } });
+}
+
+async function tacticalPlayerPage(uid) {
+  let p;
+  try { p = await api(`/api/tactical/${uid}`); } catch (e) {
+    view.innerHTML = `<div class="card empty">No Tactical Effectiveness reading for this player yet. <a href="#tactical">Back</a></div>`;
+    return;
+  }
+  const cur = p.current.length ? p.current : [p.history[p.history.length - 1]];
+  if (TE_TAB >= cur.length) TE_TAB = 0;
+  const c = cur[TE_TAB], i = c.inputs;
+  const tabs = cur.length > 1 ? `<div class="tabs">${cur.map((x, k) => `<button class="tab ${k === TE_TAB ? "on" : ""}" data-i="${k}">${teName(k)} · ${x.overall}</button>`).join("")}</div>` : "";
+  const cat = (title, v, weight, rows, tip) => `<div class="card">${h2i(`${title}${weight ? ` <span class="muted teweight">· ${weight}</span>` : ""}`, tip)}
+    <div class="tebig"><b style="color:${teColor(v)}">${v}</b>${bar(v, teColor(v))}</div>${rows}</div>`;
+  const area = (a) => teRow(a.label, a.value, "", `familiarity ${a.phase === "ip" ? a.raw_ip : a.raw_oop}, limit ${a.raw_cap}`);
+  view.innerHTML = `<div class="grid">
+    <div class="card wide"><div class="cardhead"><div><h1>${esc(p.name || "?")}</h1>
+      <div class="muted">Tactical Effectiveness · read ${fmtDate(c.last_seen)}${c.opponent ? ` · next opponent ${esc(c.opponent)}` : ""}</div></div>
+      <div><a href="#player/${uid}">Player page</a> · <a href="#tactical">← Team</a></div></div>${tabs}
+      <div class="kpis tiles" style="margin-top:12px">
+        ${kpi(c.overall, "overall", c.overall / 100, teColor(c.overall))}
+        ${kpi(c.understanding, "tactical understanding", c.understanding / 100, teColor(c.understanding))}
+        ${kpi(c.buy_in, "buy-in", c.buy_in / 100, teColor(c.buy_in))}
+        ${kpi(c.ability, "player ability", c.ability / 100, teColor(c.ability))}
+        ${kpi(c.next_match, "next match", c.next_match / 100, teColor(c.next_match))}
+      </div></div>
+    ${cat("Tactical Understanding", c.understanding, "50%",
+      `<div class="tesub">In possession</div>${c.areas.filter((a) => a.phase === "ip").map(area).join("")}
+       <div class="tesub">Out of possession</div>${c.areas.filter((a) => a.phase === "oop").map(area).join("")}`,
+      "How well he knows each area of the tactic (the average of the eight). Each area = 60% of his familiarity with it, plus what his tactical ability and the tactic's complexity allow.")}
+    ${cat("Comprehension", c.comprehension, "",
+      teRow("Tactical Ability", i.tactical_ability) + teRow("Tactical Complexity", c.complexity, "lower is easier", "", "var(--muted)")
+      + teRow("Ease of the tactic", 100 - c.complexity, "100 − complexity"),
+      "Half tactical ability, half how easy the tactic is for his role. It feeds Tactical Understanding: it sets how high each area can get.")}
+    ${cat("Player Ability", c.ability, "15%",
+      teRow("Capability", i.capability) + teRow("Role Suitability", i.role_suitability),
+      "Capability × role suitability ÷ 100: how good he is, and how well he fits the role he plays in this tactic.")}
+    ${cat("Buy-in", c.buy_in, "20%",
+      teRow("Managerial Support", i.managerial_support_ip, "70%") + teRow("Relationships", c.relationships, "20%")
+      + `<div class="muted small tesubrow">teammates ${i.teammates} · staff ${i.staff}</div>`
+      + teRow("Manager Tendencies", i.manager_tendencies, "10%"),
+      "How much he believes in you and the tactic. Relationships = 80% teammates, 20% staff.")}
+    ${cat("Next Match", c.next_match, "15%",
+      teRow("Opposition Report", i.opposition_report, "75%") + teRow("Opposition Knowledge", i.opposition_knowledge, "25%")
+      + teRow("Readiness", i.next_match_factor, "scales both"),
+      "How prepared he is for the next opponent: the scouting report and what he knows of them, scaled by his readiness.")}
+    ${new Set(p.history.map((x) => x.first_seen)).size > 1 ? `<div class="card wide">${h2i("Over time", "Every stored reading of this player's TE (all tactics).")}<canvas id="tepHist"></canvas></div>` : ""}
+  </div>`;
+  view.querySelectorAll(".tabs .tab").forEach((b) => b.addEventListener("click", () => { TE_TAB = +b.dataset.i; tacticalPlayerPage(uid); }));
+  if ($("#tepHist")) {
+    const h = p.history;
+    const ds = [["overall", "Overall", CT.accent], ["understanding", "Understanding", CT.blue], ["buy_in", "Buy-in", "#3fb950"],
+      ["ability", "Ability", "#d29922"], ["next_match", "Next match", "#a371f7"]].map(([k, l, col], n) => ({
+      label: l, data: h.map((x) => x[k]), borderColor: col, backgroundColor: col, tension: .2, borderWidth: n ? 1.5 : 3 }));
+    chart($("#tepHist"), { type: "line", data: { labels: h.map((x) => x.first_seen), datasets: ds },
+      options: { plugins: { legend: { labels: { color: CT.text } } }, scales: { x: { grid: GRID, ticks: TICK }, y: { grid: GRID, ticks: TICK, max: 100 } } } });
+  }
+}
+
 // ------------------------------------------------------------------ router
 const routes = { overview, players: playersPage, squad: playersPage, development: developmentPage, per90: per90Page,
-  fixtures: fixturesPage, shortlist: shortlistPage, remote: remotePage, settings: settingsPage };
+  fixtures: fixturesPage, shortlist: shortlistPage, tactical: tacticalPage, remote: remotePage, settings: settingsPage };
 async function route() {
   closeZoom();
   charts.splice(0).forEach((c) => c.destroy());
@@ -1993,6 +2131,7 @@ async function route() {
     else if (name === "match") await matchPage(args[0]);
     else if (name === "compare") await comparePage(args[0], args[1]);
     else if (name === "shortlist" && args[0]) await shortlistPlayerPage(args[0]);
+    else if (name === "tactical" && args[0]) await tacticalPlayerPage(args[0]);
     else await (routes[name] || overview)();
   } catch (e) {
     view.innerHTML = `<div class="card empty">Error: ${esc(e.message)}</div>`;

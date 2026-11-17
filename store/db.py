@@ -128,10 +128,33 @@ CREATE TABLE IF NOT EXISTS shortlist_attributes (
     PRIMARY KEY (snapshot_id, unique_id, attr)
 );
 
+-- Tactical Effectiveness (FM27), as the game last worked it out: one set per tactic per reading, one row per XI slot.
+-- The game only computes TE when a TE screen is shown (or for a match), so readings come when it has; an unchanged
+-- set is not stored again, its last_seen moves on instead. raw = the record's 0x40 bytes with the pointers zeroed.
+CREATE TABLE IF NOT EXISTS tactical_sets (
+    id INTEGER PRIMARY KEY,
+    signature TEXT NOT NULL UNIQUE,
+    first_seen TEXT, last_seen TEXT,          -- in-game dates
+    first_snapshot INTEGER, last_snapshot INTEGER,
+    taken_at TEXT,                            -- real time of the last reading
+    opponent_club_id INTEGER,
+    n_players INTEGER, overall REAL
+);
+
+CREATE TABLE IF NOT EXISTS tactical_players (
+    set_id INTEGER NOT NULL,
+    slot INTEGER NOT NULL,
+    unique_id INTEGER,
+    raw BLOB NOT NULL,
+    overall INTEGER,
+    PRIMARY KEY (set_id, slot)
+);
+
 CREATE INDEX IF NOT EXISTS idx_state_player ON player_state(unique_id);
 CREATE INDEX IF NOT EXISTS idx_attr_player ON player_attributes(unique_id, attr);
 CREATE INDEX IF NOT EXISTS idx_pms_player ON player_match_stats(unique_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_date ON fixtures(date);
+CREATE INDEX IF NOT EXISTS idx_tact_player ON tactical_players(unique_id);
 """
 
 

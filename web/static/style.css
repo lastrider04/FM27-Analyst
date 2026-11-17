@@ -517,3 +517,23 @@ h2 [data-count] { margin-left: 6px; text-transform: none; letter-spacing: 0; fon
   .formscroll > table.form { min-width: 440px; }
   .formscroll table.form td.opp { white-space: nowrap; width: 150px; }
 }
+
+/* ---- tactical effectiveness */
+.terow { display: grid; grid-template-columns: minmax(120px, 1.3fr) 2fr 34px auto; gap: 10px; align-items: center; padding: 4px 0; }
+.terow .bar { margin: 0; }
+.terow .tev { text-align: right; font-variant-numeric: tabular-nums; }
+.terow.clickrow { cursor: pointer; }
+.tesub { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 2px; }
+.tesubrow { padding: 0 0 4px 0; }
+.tebig { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; margin: 4px 0 8px; }
+.tebig b { font-size: 30px; font-variant-numeric: tabular-nums; }
+.tecell { display: grid; grid-template-columns: 26px 60px; gap: 6px; align-items: center; justify-content: end; }
+.tecell .bar { margin: 0; }
+table.te td:first-child, table.te th:first-child { text-align: left; }
+@media (max-width: 640px) {
+  .terow { grid-template-columns: 1fr 1.2fr 30px; }
+  .terow > .muted { grid-column: 1 / -1; margin-top: -4px; }
+  .tecell { grid-template-columns: 26px; }
+  .tecell .bar { display: none; }
+}
+h2 .teweight { margin-left: 6px; font-weight: 400; display: inline; }
