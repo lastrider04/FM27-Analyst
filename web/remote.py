@@ -4,7 +4,7 @@ The desktop dashboard on 127.0.0.1 is unchanged. This listener (default 0.0.0.0:
   - the sign-in page and its /auth/* endpoints (QR pairing, Google sign-in, password),
   - the UI shell (/static, the PWA manifest and service worker),
   - and, for a paired device, the allow-listed parts of the dashboard API (ALLOW): reading every page, the coach,
-    Capture and the Auto switch. Settings, game snapshots, sign-ins, backups and Quit are never reachable here.
+    Capture, Tactical Effectiveness' Read now and the Auto switch. Settings, game snapshots, sign-ins, backups and Quit are never reachable here.
 
 Pairing a device takes two steps, in either order, within PENDING_TTL: sign in (Google or the password) AND enter
 the one-time pairing code shown in Settings › Phone on the PC (scanned as a QR code, or typed). Neither alone is
@@ -52,10 +52,10 @@ CALLBACK_PATH = "/auth/google/callback"
 # what a paired phone may do: (methods, path pattern)
 ALLOW = [
     ({"GET", "HEAD"}, re.compile(r"/|/api/(status|overview|squad|players|compare|per90|form|development|fixtures|shortlist"
-                                 r"|capture|auto|health|chats|llm/status|chat/context|remoteplay)")),
-    ({"GET", "HEAD"}, re.compile(r"/api/(match|similar|player|chats|shortlist)/[^/]+")),
+                                 r"|capture|auto|health|chats|llm/status|chat/context|remoteplay|tactical)")),
+    ({"GET", "HEAD"}, re.compile(r"/api/(match|similar|player|chats|shortlist|tactical)/[^/]+")),
     ({"GET", "HEAD"}, re.compile(r"/api/crest/\d+")),
-    ({"POST"}, re.compile(r"/api/(capture|chat|remoteplay/pair/(wifi|tailscale))")),
+    ({"POST"}, re.compile(r"/api/(capture|chat|tactical/read|remoteplay/pair/(wifi|tailscale))")),
     ({"PUT"}, re.compile(r"/api/auto")),
     ({"DELETE"}, re.compile(r"/api/chats/[^/]+")),
 ]

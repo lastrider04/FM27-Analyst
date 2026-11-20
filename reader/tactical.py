@@ -141,7 +141,7 @@ def read_tactical(proc: GameProcess, refs: dict[int, int], profile: dict | None 
         start = min(arr)
         club = arr[start][1][8:16]
         players = [{"slot": (w - start) // REC, "uid": u, "raw": b[:REC]} for w, (u, b) in sorted(arr.items())]
-        if len(players) < 2 or max(p["slot"] for p in players) >= XI:
+        if not players or max(p["slot"] for p in players) >= XI:
             continue
         key = tuple((p["slot"], p["uid"], p["raw"][8:]) for p in players)
         if key in seen:

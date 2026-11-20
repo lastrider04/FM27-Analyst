@@ -119,16 +119,71 @@ def dial(value: float) -> int:
     return int(value // 10)
 
 
+
+
+# -- what would raise it ------------------------------------------------------------------------------------------
+
+PART_WEIGHTS = {"understanding": 0.5, "buy_in": 0.2, "ability": 0.15, "next_match": 0.15}
+TIP_TARGET = 90          # "what if this factor were 90": a realistic good value, not perfection
+
+
+def _with(raw: bytes, offsets, value: int) -> bytes:
+    b = bytearray(raw)
+    for o in offsets:
+        b[o] = max(b[o], value)
+    return bytes(b)
+
+
+def tips(raw: bytes, c: dict | None = None, opponent: str | None = None) -> list[dict]:
+    """What would raise this player's overall TE most: each fixable factor raised to TIP_TARGET, re-run through the
+    game's formulas. [{part, factor, value, gain, text}] with gain >= 1 overall point, biggest first."""
+    c = c or compute(raw)
+    i = c["inputs"]
+    weakest = min(c["areas"], key=lambda a: a["value"])
+    fam = [0x11 + 3 * k for k in range(8)] + [0x12 + 3 * k for k in range(8)]
+    opp = opponent or "the next opponent"
+    cands = [
+        ("understanding", "Tactical familiarity", weakest["value"], fam,
+         f"Weakest area {weakest['label']} ({weakest['value']}): tactical training and matches in this tactic raise it."),
+        ("ability", "Role suitability", i["role_suitability"], [0x37],
+         f"Role suitability {i['role_suitability']}: the role doesn't suit him. Try a role he suits better, or a player who suits it."),
+        ("ability", "Capability", i["capability"], [0x36],
+         f"Capability {i['capability']}: he isn't at this level in this role yet; a stronger player in the slot lifts it."),
+        ("buy_in", "Managerial support", i["managerial_support_ip"], [0x2f, 0x30],
+         f"Managerial support {i['managerial_support_ip']}: he isn't fully behind you yet. Playing time, praise and keeping promises build it."),
+        ("buy_in", "Relationships", c["relationships"], [0x34, 0x35],
+         f"Relationships {c['relationships']} (teammates {i['teammates']}, staff {i['staff']}): give him time to settle; team bonding and mentoring help."),
+        ("next_match", "Opposition report", i["opposition_report"], [0x38],
+         f"Opposition report {i['opposition_report']}: have your analysts prepare a full report on {opp}."),
+        ("next_match", "Readiness", i["next_match_factor"], [0x3a],
+         f"Readiness {i['next_match_factor']} scales his whole next-match preparation."),
+        ("understanding", "Tactical ability vs complexity", c["comprehension"], [0x10],
+         f"Comprehension {c['comprehension']} (tactical ability {i['tactical_ability']}, complexity {c['complexity']}): "
+         "this tactic is hard for him in this role; a simpler role or tactic caps him less."),
+    ]
+    out = []
+    for part, factor, value, offs, text in cands:
+        gain = compute(_with(raw, offs, TIP_TARGET))["overall"] - c["overall"]
+        if gain >= 1:
+            out.append({"part": part, "factor": factor, "value": value, "gain": gain, "text": text})
+    return sorted(out, key=lambda t: -t["gain"])
+
+
+def points_lost(t: dict) -> list[dict]:
+    """Where the team overall loses points: weight x (100 - part), per part (team averages)."""
+    return sorted(({"part": k, "lost": round(w * (100 - t[k]), 1)} for k, w in PART_WEIGHTS.items()),
+                  key=lambda x: -x["lost"])
+
+
 # -- stored readings (tables tactical_sets / tactical_players) -------------------------------------------------------
+
+TACTIC_MIN = 8           # a set with at least this many players is a tactic's XI; smaller ones are single readings
+                         # (a player's own TE screen), used for his page and for selection
+
 
 def _tactic_key(raw: bytes) -> int:
     """The tactic's own complexity (+0x29): the same for every player in a set, different between tactics."""
     return raw[0x29]
-
-
-def _player_row(r, names: dict) -> dict:
-    c = compute(bytes(r["raw"]))
-    return {"slot": r["slot"], "unique_id": r["unique_id"], "name": names.get(r["unique_id"]), **c}
 
 
 def _names(con, uids) -> dict:
@@ -139,52 +194,129 @@ def _names(con, uids) -> dict:
     return {r[0]: r[1] for r in con.execute(f"SELECT unique_id, name FROM players WHERE unique_id IN ({q})", uids)}
 
 
+def _positions(con, club_id) -> dict:
+    if club_id is None:
+        return {}
+    from .players import all_players
+    try:
+        return {p["unique_id"]: p.get("primary") for p in all_players(con, club_id)["players"]}
+    except Exception:
+        return {}
+
+
 def _club_name(con, cid):
     r = con.execute("SELECT name FROM clubs WHERE club_id = ?", (cid,)).fetchone()
     return r[0] if r else None
 
 
-def _set(con, s, names=None) -> dict:
+def _player_row(r, names: dict, pos: dict, opponent: str | None) -> dict:
+    raw = bytes(r["raw"])
+    c = compute(raw)
+    return {"slot": r["slot"], "unique_id": r["unique_id"], "name": names.get(r["unique_id"]),
+            "position": pos.get(r["unique_id"]), "tips": tips(raw, c, opponent), **c}
+
+
+def _set(con, s, pos: dict) -> dict:
     rows = con.execute("SELECT * FROM tactical_players WHERE set_id = ? ORDER BY slot", (s["id"],)).fetchall()
-    names = names if names is not None else _names(con, [r["unique_id"] for r in rows])
-    players = [_player_row(r, names) for r in rows]
+    names = _names(con, [r["unique_id"] for r in rows])
+    opponent = _club_name(con, s["opponent_club_id"])
+    players = [_player_row(r, names, pos, opponent) for r in rows]
+    t = team(players)
+    if t:
+        t["points_lost"] = points_lost(t)
     return {"id": s["id"], "first_seen": s["first_seen"], "last_seen": s["last_seen"], "taken_at": s["taken_at"],
-            "opponent_club_id": s["opponent_club_id"], "opponent": _club_name(con, s["opponent_club_id"]),
+            "opponent_club_id": s["opponent_club_id"], "opponent": opponent,
             "tactic_complexity": _tactic_key(bytes(rows[0]["raw"])) if rows else None,
-            "team": team(players), "players": players}
+            "team": t, "players": players}
 
 
-def latest(con) -> dict:
+def latest(con, club_id: int | None = None) -> dict:
     """The most recent reading (one set per tactic) and each tactic's team overall over time."""
-    last = con.execute("SELECT MAX(taken_at) FROM tactical_sets").fetchone()[0]
+    last = con.execute("SELECT MAX(taken_at) FROM tactical_sets WHERE n_players >= ?", (TACTIC_MIN,)).fetchone()[0]
     if not last:
         return {"sets": [], "history": []}
-    sets = [_set(con, s) for s in con.execute(
-        "SELECT * FROM tactical_sets WHERE taken_at = ? ORDER BY n_players DESC, id", (last,))]
+    pos = _positions(con, club_id)
+    sets = [_set(con, s, pos) for s in con.execute(
+        "SELECT * FROM tactical_sets WHERE taken_at = ? AND n_players >= ? ORDER BY id", (last, TACTIC_MIN))]
     history = []
     for s in con.execute("SELECT s.id, s.first_seen, s.last_seen, s.overall, "
                          "(SELECT raw FROM tactical_players p WHERE p.set_id = s.id LIMIT 1) AS raw "
-                         "FROM tactical_sets s ORDER BY s.first_seen, s.id"):
+                         "FROM tactical_sets s WHERE s.n_players >= ? ORDER BY s.first_seen, s.id", (TACTIC_MIN,)):
         history.append({"set_id": s["id"], "first_seen": s["first_seen"], "last_seen": s["last_seen"],
                         "overall": s["overall"], "tactic_complexity": _tactic_key(bytes(s["raw"])) if s["raw"] else None})
     return {"sets": sets, "history": history, "taken_at": last}
 
 
-def player(con, unique_id: int) -> dict | None:
-    """One player's TE in the latest reading (per tactic) and every stored reading of it."""
-    rows = con.execute("""SELECT p.*, s.first_seen, s.last_seen, s.taken_at, s.opponent_club_id
+def by_player(con) -> dict[int, dict]:
+    """Each player's most recent TE for the main tactic (Tactic A of the latest reading): from that XI, or from a
+    later single reading of the same tactic. {uid: {overall, parts..., weakest, tip, in_xi, read}}."""
+    last = con.execute("SELECT MAX(taken_at) FROM tactical_sets WHERE n_players >= ?", (TACTIC_MIN,)).fetchone()[0]
+    if not last:
+        return {}
+    main = con.execute("SELECT id FROM tactical_sets WHERE taken_at = ? AND n_players >= ? ORDER BY id LIMIT 1",
+                       (last, TACTIC_MIN)).fetchone()[0]
+    xi = {r["unique_id"]: r for r in con.execute("SELECT * FROM tactical_players WHERE set_id = ?", (main,))}
+    key = _tactic_key(bytes(next(iter(xi.values()))["raw"])) if xi else None
+    out = {}
+    rows = con.execute("""SELECT p.*, s.last_seen, s.taken_at, s.id AS sid FROM tactical_players p
+                          JOIN tactical_sets s ON s.id = p.set_id WHERE p.unique_id IS NOT NULL
+                          ORDER BY s.taken_at, s.id""").fetchall()
+    for r in rows:
+        raw = bytes(r["raw"])
+        if _tactic_key(raw) != key or (r["unique_id"] in xi and r["sid"] != main and r["taken_at"] < last):
+            continue
+        c = compute(raw)
+        tp = tips(raw, c)
+        out[r["unique_id"]] = {
+            "overall": c["overall"], "understanding": c["understanding"], "buy_in": c["buy_in"],
+            "ability": c["ability"], "next_match": c["next_match"], "comprehension": c["comprehension"],
+            "weakest": min(PART_WEIGHTS, key=lambda k: c[k]), "tip": tp[0]["text"] if tp else None,
+            "in_xi": r["unique_id"] in xi, "read": r["last_seen"]}
+    return out
+
+
+def player(con, unique_id: int, club_id: int | None = None) -> dict | None:
+    """One player's TE in the latest reading (per tactic), every stored reading of it, and the team's averages."""
+    rows = con.execute("""SELECT p.*, s.first_seen, s.last_seen, s.taken_at, s.opponent_club_id, s.n_players
                           FROM tactical_players p JOIN tactical_sets s ON s.id = p.set_id
                           WHERE p.unique_id = ? ORDER BY s.first_seen, s.id""", (unique_id,)).fetchall()
     if not rows:
         return None
     names = _names(con, [unique_id])
+    pos = _positions(con, club_id)
+    lat = latest(con, club_id)
+    teams = {s["tactic_complexity"]: s["team"] for s in lat["sets"]}
     last = max(r["taken_at"] for r in rows)
-    readings = []
+    readings, seen = [], set()
     for r in rows:
-        d = _player_row(r, names)
-        d.update(set_id=r["set_id"], first_seen=r["first_seen"], last_seen=r["last_seen"],
-                 opponent=_club_name(con, r["opponent_club_id"]), tactic_complexity=_tactic_key(bytes(r["raw"])),
-                 latest=r["taken_at"] == last)
+        opp = _club_name(con, r["opponent_club_id"])
+        d = _player_row(r, names, pos, opp)
+        key = _tactic_key(bytes(r["raw"]))
+        d.update(set_id=r["set_id"], first_seen=r["first_seen"], last_seen=r["last_seen"], opponent=opp,
+                 tactic_complexity=key, latest=r["taken_at"] == last, in_xi=r["n_players"] >= TACTIC_MIN,
+                 team=teams.get(key))
         readings.append(d)
-    return {"unique_id": unique_id, "name": names.get(unique_id), "taken_at": last,
-            "current": [d for d in readings if d["latest"]], "history": readings}
+    current = []
+    for d in reversed(readings):             # newest per tactic, in the order of the latest reading's tabs
+        if d["tactic_complexity"] not in seen:
+            seen.add(d["tactic_complexity"])
+            current.append(d)
+    order = [s["tactic_complexity"] for s in lat["sets"]]
+    current.sort(key=lambda d: order.index(d["tactic_complexity"]) if d["tactic_complexity"] in order else 99)
+    return {"unique_id": unique_id, "name": names.get(unique_id), "position": pos.get(unique_id), "taken_at": last,
+            "current": current, "history": readings, "tactics": order}
+
+
+def summary(con, club_id: int | None = None) -> dict | None:
+    """The main tactic's latest reading in brief, for the Overview: team values, where points go, the weakest three."""
+    d = latest(con, club_id)
+    if not d["sets"]:
+        return None
+    s = d["sets"][0]
+    t = s["team"]
+    weak = sorted(s["players"], key=lambda p: p["overall"])[:3]
+    return {"overall": t["overall"], "parts": {k: t[k] for k in PART_WEIGHTS}, "comprehension": t["comprehension"],
+            "points_lost": t["points_lost"], "opponent": s["opponent"], "read": s["last_seen"],
+            "tactics": [{"overall": x["team"]["overall"]} for x in d["sets"]],
+            "weakest": [{"unique_id": p["unique_id"], "name": p["name"], "position": p["position"], "overall": p["overall"],
+                         "tip": p["tips"][0] if p["tips"] else None} for p in weak]}

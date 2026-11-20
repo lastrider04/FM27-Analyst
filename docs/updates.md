@@ -2,12 +2,30 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.3b: Tactics on the phone, and TE in team selection](#103b-tactics-on-the-phone-and-te-in-team-selection) (20 November 2026)
 - [1.0.3: Tactical Effectiveness](#103-tactical-effectiveness) (17 November 2026)
 - [1.0.2d: more room for FM27](#102d-more-room-for-fm27) (15 November 2026)
 - [1.0.2c: play with a controller](#102c-play-with-a-controller) (15 November 2026)
 - [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.3b: Tactics on the phone, and TE in team selection
+Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),
+and run `install.bat` again.
+
+- **Tactics works on the phone.** It used to fail to load there.
+- **A redesigned Tactics page.** The top card shows the team overall as a ring, a bar of what each part adds, and how
+  many points each part gives away. **Where to gain** lists the changes that would lift players' TE most, worked out
+  with the game's own formulas. **Tactics compared** puts your tactics side by side. The XI table is colour-coded and
+  scrolls sideways on a phone with the names kept in place. The player page shows his overall against the team
+  average and **How to raise it**. See [Tactics](guide/dashboard.md#tactics).
+- **Help picking the team.** The Overview has a **Tactical readiness** card: team TE, where it loses most, and the
+  three players holding it back. Next-match picks and rotation swaps show a **TE** badge, and a starter below 80 gets a
+  caution.
+- **AI coach:** it sees the points lost per part, the biggest gains, and TE on each suggested swap.
+- **TE for a sub:** open his **Development › Tactical Effectiveness** screen in FM27, then press **Read now**.
+- **The phone app updates itself.** An open phone app now reloads when the app on your PC has been updated.
 
 ## 1.0.3: Tactical Effectiveness
 Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),

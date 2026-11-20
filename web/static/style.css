@@ -519,21 +519,79 @@ h2 [data-count] { margin-left: 6px; text-transform: none; letter-spacing: 0; fon
 }
 
 /* ---- tactical effectiveness */
-.terow { display: grid; grid-template-columns: minmax(120px, 1.3fr) 2fr 34px auto; gap: 10px; align-items: center; padding: 4px 0; }
-.terow .bar { margin: 0; }
+:root { --te-u: #5aa9ff; --te-b: #3fb950; --te-a: #d29922; --te-n: #a371f7; }
+.tehero .teherobody { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; margin-top: 6px; }
+.teringbox { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; min-width: 150px; }
+.tering .track { fill: none; stroke: var(--panel2); stroke-width: 10; }
+.tering .val { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+.tering .rv { fill: var(--text); font-size: 34px; font-weight: 700; text-anchor: middle; font-variant-numeric: tabular-nums; }
+.tering .rs { fill: var(--muted); font-size: 10px; text-anchor: middle; text-transform: uppercase; letter-spacing: .06em; }
+.tebuild { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.testack { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--panel2); }
+.testack span { display: block; height: 100%; border-right: 2px solid var(--panel); }
+.tehead { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.techips { display: flex; gap: 8px; }
+.techip { flex: 1 1 auto; background: var(--panel2); border-radius: 10px; padding: 8px 9px; display: flex; flex-direction: column; gap: 2px; cursor: help; }
+.techip b span { font-size: inherit; }
+.telinks { margin-top: 4px; }
+.techip b { font-size: 20px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.techip span { color: var(--muted); font-size: 12px; line-height: 1.25; white-space: nowrap; }
+@media (max-width: 359px) { .techip { padding: 7px; } .techip span { font-size: 11px; } .techips { gap: 6px; } }
+.teparts { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.tepart { display: grid; grid-template-columns: 10px minmax(0, 1fr) 40px 48px; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--panel2); }
+.tepart:last-child { border-bottom: 0; }
+.tepart i { width: 10px; height: 10px; border-radius: 3px; }
+.tepart .pl { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; min-width: 0; line-height: 1.25; }
+.tepart .tew { color: var(--muted); font-size: 12px; }
+.tepart b { font-size: 18px; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.tepart .tel2 { color: var(--muted); font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
+.tephd { padding: 0 0 4px; }
+.tephd span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.tephd span:nth-of-type(2), .tephd span:nth-of-type(3) { text-align: right; }
+.terow { display: grid; grid-template-columns: minmax(110px, 1.2fr) 2fr 34px minmax(0, auto); gap: 10px; align-items: center; padding: 4px 0; }
+.terow .tel:empty { display: none; }
+.tebig .terow { grid-template-columns: 1fr 34px auto; }
+.tebig .terow .tev { display: none; }
+.terow .bar { margin: 0; display: block; }
+.terow .bar .avg { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); opacity: .7; border-radius: 1px; }
 .terow .tev { text-align: right; font-variant-numeric: tabular-nums; }
-.terow.clickrow { cursor: pointer; }
+.terow .ten { white-space: nowrap; }
 .tesub { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 2px; }
-.tesubrow { padding: 0 0 4px 0; }
-.tebig { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; margin: 4px 0 8px; }
-.tebig b { font-size: 30px; font-variant-numeric: tabular-nums; }
-.tecell { display: grid; grid-template-columns: 26px 60px; gap: 6px; align-items: center; justify-content: end; }
-.tecell .bar { margin: 0; }
-table.te td:first-child, table.te th:first-child { text-align: left; }
-@media (max-width: 640px) {
-  .terow { grid-template-columns: 1fr 1.2fr 30px; }
-  .terow > .muted { grid-column: 1 / -1; margin-top: -4px; }
-  .tecell { grid-template-columns: 26px; }
-  .tecell .bar { display: none; }
-}
+.tebig { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; margin: 2px 0 8px; }
+.tebig > b { font-size: 30px; font-variant-numeric: tabular-nums; }
 h2 .teweight { margin-left: 6px; font-weight: 400; display: inline; }
+.tetip { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: start; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.tetip:last-child { border-bottom: 0; }
+.tetip .gain { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); font-weight: 700;
+  border-radius: 6px; text-align: center; padding: 2px 0; font-variant-numeric: tabular-nums; }
+table.te { border-collapse: separate; border-spacing: 3px; }
+table.te th { font-size: 11px; color: var(--muted); text-align: center; padding: 4px 2px; cursor: pointer; }
+table.te td.heat { text-align: center; font-variant-numeric: tabular-nums; border-radius: 5px; padding: 6px 4px; min-width: 34px;
+  background: color-mix(in srgb, var(--h) 22%, transparent); color: var(--text); }
+table.te td.heat.big { font-weight: 700; background: color-mix(in srgb, var(--h) 38%, transparent); }
+table.te td.heat.ar { font-size: 12px; min-width: 28px; opacity: .9; }
+table.te td.stick, table.te th.stick { position: sticky; left: 0; background: var(--panel); z-index: 1; text-align: left; white-space: nowrap; padding-right: 10px; }
+table.tecmp { width: 100%; }
+table.tecmp td, table.tecmp th { text-align: center; padding: 5px 6px; font-variant-numeric: tabular-nums; }
+table.tecmp td:first-child { text-align: left; color: var(--muted); }
+table.tecmp tr.tot td { font-weight: 700; font-size: 16px; }
+table.tecmp td.best { color: var(--good); font-weight: 700; }
+.tetabs .tab .muted { font-weight: 400; margin-left: 4px; }
+.tepill { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 600;
+  color: var(--text); background: color-mix(in srgb, var(--h) 30%, transparent); text-decoration: none; vertical-align: 1px; }
+.teov { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; margin: 4px 0 8px; }
+.teovparts { display: flex; flex-direction: column; gap: 6px; }
+.teovp { display: grid; grid-template-columns: 92px 1fr 28px; gap: 8px; align-items: center; font-size: 13px; }
+.teovp .bar { margin: 0; }
+.teovp b { text-align: right; font-variant-numeric: tabular-nums; }
+.teweak { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: start; padding: 6px 0; cursor: pointer; border-bottom: 1px solid var(--line); }
+.teweak:last-child { border-bottom: 0; }
+.teweak > b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.nowrap { white-space: nowrap; }
+@media (max-width: 640px) {
+  .tehero .teherobody { grid-template-columns: 1fr; gap: 14px; }
+  .terow { grid-template-columns: 1fr 1.1fr 30px; }
+  .terow > .ten { grid-column: 1 / -1; margin-top: -4px; }
+  .tebig .terow > .ten { grid-column: auto; margin: 0; }
+  table.te td.heat { min-width: 30px; padding: 6px 2px; }
+}

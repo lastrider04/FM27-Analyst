@@ -435,6 +435,11 @@ def capture_status():
 
 
 # ---------------------------------------------------------------- status
+def _ui_stamp() -> int:
+    """Changes whenever the page files do, so an open phone app knows to reload itself after an update."""
+    return int(max((STATIC / f).stat().st_mtime for f in ("index.html", "app.js", "coach.js", "style.css")))
+
+
 @app.get("/api/status")
 def status(request: Request):
     from reader.process import ProcessNotFound, find_pid
@@ -460,6 +465,7 @@ def status(request: Request):
                 "hotkey": app_config.load_config()["hotkey"], "auto": AUTO.state(),
                 "save": careers.active_info(), "health": HEALTH.state(),
                 "remote": getattr(request.state, "remote_device", None) is not None, "needs_club": club() is None,
+                "ui": _ui_stamp(),
                 "appearance": appearance(),
                 "next": {"date": nxt["date"], "kickoff": nxt["kickoff"], "venue": "H" if nxt["home_id"] == club() else "A",
                          "opponent": nxt["away"] if nxt["home_id"] == club() else nxt["home"],
@@ -531,11 +537,20 @@ def overview():
         return {"last_match": {"summary": summary, "players": plain(lines)}, "upcoming": upcoming,
                 "in_form": in_form(match_lines(con, c)),
                 "next_match": recommend(con, c),
+                "tactical": _te_summary(con, c),
                 "team_form": plain(tf) | {"string": tf.string, "points": tf.points, "goals_for": tf.goals_for,
                                           "goals_against": tf.goals_against, "unbeaten_run": tf.unbeaten_run},
                 "alerts": plain(alerts(con, club()))}
     finally:
         con.close()
+
+
+def _te_summary(con, c):
+    from analytics.tactical import summary
+    try:
+        return summary(con, c)
+    except Exception:            # TE is a nice-to-have on the overview: never break the page over it
+        return None
 
 
 @app.get("/api/match/{fixture_id}")
@@ -732,7 +747,7 @@ def tactical_all():
     from analytics.tactical import latest
     con = db()
     try:
-        return plain(latest(con))
+        return plain(latest(con, club()))
     finally:
         con.close()
 
@@ -742,7 +757,7 @@ def tactical_one(unique_id: int):
     from analytics.tactical import player
     con = db()
     try:
-        p = player(con, unique_id)
+        p = player(con, unique_id, club())
         if not p:
             raise HTTPException(404, "no Tactical Effectiveness reading for this player yet")
         return plain(p)

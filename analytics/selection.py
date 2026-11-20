@@ -18,7 +18,8 @@ FRESH_CONDITION, FRESH_JADED = 95.0, 100
 NEUTRAL_FORM = 6.7          # stand-in rating for players without captured matches
 RECENT = 5                  # matches used for form
 STARTER_WINDOW = 3          # a "likely starter" started at least 2 of the club's last 3 captured matches
-HEAVY_LOAD_MINUTES = 170    # minutes over the last two captured matches that count as a heavy load
+HEAVY_LOAD_MINUTES = 170
+TE_LOW = 80                 # Tactical Effectiveness overall below this is flagged    # minutes over the last two captured matches that count as a heavy load
 
 
 def group_of(positions: dict[str, int]) -> str | None:
@@ -76,6 +77,12 @@ def recommend(con: sqlite3.Connection, club_id: int, n: int = 6) -> dict:
         if l.fixture_id in last2:
             load[l.unique_id] = load.get(l.unique_id, 0) + l.minutes
     need = min(2, len(last))
+    try:
+        from .tactical import by_player
+        te = by_player(con)
+    except sqlite3.Error:
+        te = {}
+    PART = {"understanding": "understanding", "buy_in": "buy-in", "ability": "ability", "next_match": "next match"}
 
     rows = []
     for p in squad:
@@ -108,6 +115,9 @@ def recommend(con: sqlite3.Connection, club_id: int, n: int = 6) -> dict:
             cautions.append(f"{load[uid]}' in last 2")
         if not r:
             cautions.append("no captured matches")
+        t = te.get(uid)
+        if t and t["overall"] < TE_LOW:
+            cautions.append(f"tactical effectiveness {t['overall']} ({PART[t['weakest']]} {t[t['weakest']]})")
         why = []
         if form is not None:
             why.append(f"form {form:.2f} in {len(r)}" + (" ↑" if trend >= 0.1 else " ↓" if trend <= -0.1 else ""))
@@ -117,10 +127,12 @@ def recommend(con: sqlite3.Connection, club_id: int, n: int = 6) -> dict:
             why.append(f"xG+xA/90 {threat:.2f}")
         why.append(f"cond {cond:.0f}%, sharp {sharp:.0f}%")
         why.append(f"CA {p['ca']}")
+        if t:
+            why.append(f"TE {t['overall']}")
         rows.append(dict(unique_id=uid, name=p["name"], position=p["primary"], group=group_of(p["positions"]),
                          positions=p["positions"], condition=round(cond, 1), sharpness=round(sharp, 1), jadedness=jad,
                          form=form, trend=trend, goal_involvements=gi, threat=round(threat, 2), ca=p["ca"],
-                         injury=p.get("injury"),
+                         injury=p.get("injury"), te=t,
                          score=round(score, 2), starter=bool(last) and starts.get(uid, 0) >= need,
                          unfit=issues, caution=cautions, why=", ".join(why)))
 
@@ -146,4 +158,5 @@ def recommend(con: sqlite3.Connection, club_id: int, n: int = 6) -> dict:
     return {"recommended": [strip(r) for r in fit[:n]],
             "swaps": [{**w, "out": strip(w["out"]), "in": strip(w["in"])} for w in swaps],
             "rest": [strip(r) for r in rows if r["unfit"]],
-            "basis": {"condition_at": data["game_date"], "matches": len(recent)}}
+            "basis": {"condition_at": data["game_date"], "matches": len(recent),
+                      "te_read": max((t["read"] for t in te.values()), default=None)}}

@@ -116,13 +116,14 @@ def build_context(con: sqlite3.Connection, club_id: int, page: str = "overview")
     out.append("IN FORM (app's score: last-3 average + trend + goal involvements)\n" + "\n".join(
         f"- {p['name']}: {p['why']} (score {p['score']})" for p in in_form(lines)))
     out.append("APP'S NEXT-MATCH RECOMMENDATION (rule-based: form, trend, goal threat, ability, condition, sharpness, jadedness, recent minutes)\n"
-               + "\n".join(f"- swap: {w['out']['name']} -> {w['in']['name']} [{w['group']}] ({w['reason']})" for w in rec["swaps"])
+               + "\n".join(f"- swap: {w['out']['name']} -> {w['in']['name']} [{w['group']}] ({w['reason']})"
+                         + _te_pair(w) for w in rec["swaps"])
                + "\n" + "\n".join(f"- best placed: {p['name']} ({p['position']}): {p['why']}" for p in rec["recommended"]))
     al = alerts(con, club_id)
     out.append("ALERTS\n" + ("\n".join(f"- {a.kind}: {a.name} ({a.detail})" for a in al) or "none"))
 
     out.append(_shortlist_block(con, club_id))
-    out.append(_tactical_block(con))
+    out.append(_tactical_block(con, club_id))
 
     summary, ml = last_match(con, club_id)
     if summary:
@@ -196,31 +197,44 @@ def _shortlist_block(con, club_id: int) -> str:
             + "\nGO FOR THEM NOW (the app's list): " + (", ".join(go) or "nobody right now"))
 
 
-def _tactical_block(con) -> str:
+def _te_pair(w: dict) -> str:
+    a, b = (w["out"].get("te") or {}).get("overall"), (w["in"].get("te") or {}).get("overall")
+    return f"; TE {a if a is not None else '?'} -> {b if b is not None else 'not read'}" if a is not None or b is not None else ""
+
+
+def _tactical_block(con, club_id: int | None = None) -> str:
     """FM27's Tactical Effectiveness for each tactic at the last reading (the game's own 0-100 values)."""
     from analytics.tactical import latest
     try:
-        d = latest(con)
+        d = latest(con, club_id)
     except sqlite3.Error:
         return ""
     if not d["sets"]:
         return ""
+    names = {"understanding": "understanding", "buy_in": "buy-in", "ability": "ability", "next_match": "next match"}
     parts = []
     for n, s in enumerate(d["sets"]):
         t = s["team"]
+        lost = ", ".join(f"{names[x['part']]} {x['lost']}" for x in t["points_lost"])
+        tips = [(p["name"] or "?", tp) for p in s["players"] for tp in p["tips"][:2]]
+        tips.sort(key=lambda x: -x[1]["gain"])
         parts.append(
-            f"Tactic {chr(65 + n)} (tactic complexity {s['tactic_complexity']}, read {s['last_seen']}, next opponent "
-            f"{s['opponent'] or '?'}): team overall {_f(t['overall'])}, understanding {_f(t['understanding'])}, buy-in "
-            f"{_f(t['buy_in'])}, ability {_f(t['ability'])}, next match {_f(t['next_match'])}, comprehension "
-            f"{_f(t['comprehension'])}; weakest areas: "
+            f"Tactic {chr(65 + n)}{' (the main one)' if n == 0 else ''} (tactic complexity {s['tactic_complexity']}, read "
+            f"{s['last_seen']}, next opponent {s['opponent'] or '?'}): team overall {_f(t['overall'])}, understanding "
+            f"{_f(t['understanding'])}, buy-in {_f(t['buy_in'])}, ability {_f(t['ability'])}, next match "
+            f"{_f(t['next_match'])}, comprehension {_f(t['comprehension'])}. Overall points lost per part: {lost}. "
+            "Weakest areas: "
             + ", ".join(f"{a['label']} {_f(a['value'])}" for a in sorted(t["areas"], key=lambda a: a["value"])[:3]) + "\n"
-            + _table(["Player", "Overall", "Underst.", "Compreh.", "Ability", "Buy-in", "Next", "Weakest area"],
-                     [[p["name"] or "?", p["overall"], p["understanding"], p["comprehension"], p["ability"], p["buy_in"],
-                       p["next_match"], min(p["areas"], key=lambda a: a["value"])["label"]
-                       + f" {min(a['value'] for a in p['areas'])}"] for p in s["players"]]))
-    return ("TACTICAL EFFECTIVENESS (FM27's own values 0-100, read from the game; overall = 50% tactical understanding "
-            "+ 20% buy-in + 15% player ability + 15% next-match preparation; comprehension = tactical ability vs the "
-            "tactic's complexity for his role)\n" + "\n".join(parts))
+            + _table(["Player", "Pos", "Overall", "Underst.", "Compreh.", "Ability", "Buy-in", "Next", "Weakest area"],
+                     [[p["name"] or "?", p.get("position") or "?", p["overall"], p["understanding"], p["comprehension"],
+                       p["ability"], p["buy_in"], p["next_match"], min(p["areas"], key=lambda a: a["value"])["label"]
+                       + f" {min(a['value'] for a in p['areas'])}"] for p in s["players"]])
+            + ("\nBiggest gains (his overall if that factor reached 90):\n"
+               + "\n".join(f"- {nm}: +{tp['gain']} - {tp['text']}" for nm, tp in tips[:8]) if tips and n == 0 else ""))
+    return ("TACTICAL EFFECTIVENESS (FM27's own values 0-100, read from the game for the XI it was worked out for; "
+            "overall = 50% tactical understanding + 20% buy-in + 15% player ability + 15% next-match preparation; "
+            "comprehension = tactical ability vs the tactic's complexity for his role. Players outside that XI have no "
+            "TE unless the user opened their own TE screen; the recommendation shows TE where known)\n" + "\n".join(parts))
 
 
 def _shortlist_focus(con, club_id: int, uid: int) -> str:

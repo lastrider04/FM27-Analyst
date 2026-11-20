@@ -47,3 +47,17 @@ def test_team_average():
     t = team([compute(rec(h)) for _, h, _ in XI])
     assert t["overall"] == round(sum(compute(rec(h))["overall"] for _, h, _ in XI) / 11, 1)
     assert len(t["areas"]) == 8
+
+
+def test_phone_can_open_tactics():
+    from web import remote
+    for method, path in (("GET", "/api/tactical"), ("GET", "/api/tactical/2002078810"), ("POST", "/api/tactical/read")):
+        assert remote.allowed(method, path), (method, path)
+    assert not remote.allowed("DELETE", "/api/tactical/1")
+
+
+def test_ui_stamp_follows_page_files():
+    """An open phone app reloads itself when this changes, so it must track the page files."""
+    from web import app as webapp
+    stamp = webapp._ui_stamp()
+    assert stamp >= int((webapp.STATIC / "app.js").stat().st_mtime)

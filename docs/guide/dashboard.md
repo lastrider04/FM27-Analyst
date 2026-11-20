@@ -131,23 +131,31 @@ numbers (0 to 100). The game draws each one as a dial of value ÷ 10, so 76 show
 Tactical Effectiveness**) in the game, then press **Read now** on this page. Captures also pick it up whenever the game
 has it. A reading that hasn't changed isn't stored again, so the history only grows when something moves.
 
-- **Tactic A / B:** one tab per tactic the game worked TE out for. The number on each tab is its team overall.
-- **The tiles:** the team overall and its four parts, with their weights in the overall: **tactical understanding**
-  (50%), **buy-in** (20%), **player ability** (15%) and **next match** (15%). **Comprehension** is shown as well. Each
-  is the average over the XI.
-- **Areas:** the eight tactical areas, four in possession and four out of possession. Tactical understanding is their
-  average.
-- **Weakest links:** the four lowest players, and the part that holds each one back most.
-- **Players:** every player in the XI with all five values; click a column to sort, or a player for his page.
-- **Player page:** the same breakdown as his Development › Tactical Effectiveness screen in the game, with each part's
-  factors:
-  - *Tactical understanding:* each of the eight areas;
-  - *Comprehension:* tactical ability and how complex the tactic is for his role;
-  - *Player ability:* capability and role suitability;
-  - *Buy-in:* managerial support, relationships (teammates and staff) and manager tendencies;
-  - *Next match:* the opposition report, his knowledge of the opposition, and his readiness.
+- **Tactic A / B:** one tab per tactic the game worked TE out for, with its team overall. Tactic A is the one shown on
+  FM27's TE screen.
+- **The top card:** the team overall as a ring, and how it's built. The coloured bar shows the points each part adds:
+  **tactical understanding** (50%), **buy-in** (20%), **player ability** (15%) and **next match** (15%). Next to each
+  part is how many points it gives away, so you can see where the overall is lost.
+- **Where to gain:** the changes that would lift players' TE most. Each factor is raised to 90 and run through the
+  game's own formulas, and the number is how much that player's overall would go up. For example, managerial support
+  (build his trust), the weakest tactical area (training), role suitability (another role or player) or the
+  opposition report.
+- **Tactics compared** (with two or more tactics): each part side by side, the better tactic highlighted, and the
+  players who'd be clearly better in the other one.
+- **Areas:** the eight tactical areas, four in possession and four out of possession.
+- **The XI:** every player in a colour-coded table with the overall, the four parts, comprehension and all eight
+  areas. Sort by any column; on a phone the table scrolls sideways and the names stay put.
+- **Player page:** a ring and the same "how it's built" bar for him, his overall against the team average, **How to
+  raise it**, and every factor from his Development › Tactical Effectiveness screen in the game. A tick on each bar
+  marks the team average.
 
-  Once there are readings on different days, a chart shows how they change.
+To see TE for a player outside the XI, such as a sub you're thinking of starting, open his **Development › Tactical
+Effectiveness** screen in FM27, then press **Read now**.
+
+**On the Overview:** a **Tactical readiness** card shows the team's TE, where it loses most, and the three players
+holding it back, each with the change that would help most. Next-match recommendations and rotation swaps carry a **TE**
+badge wherever the game has worked it out. A starter below 80 gets a caution, and the AI coach sees all of this when
+you ask about selection.
 
 The first reading after FM27 starts takes about 10 seconds; later ones take about 5.
 
