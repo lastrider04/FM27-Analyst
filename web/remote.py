@@ -15,6 +15,7 @@ preflight, which this listener never answers), and an Origin header, when presen
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -282,6 +283,24 @@ def check_claims(claims: dict, cfg: dict, nonce: str) -> str:
     return email
 
 
+_TOKEN_ERRORS = {
+    "invalid_grant": "That sign-in code was already used or has expired - start again from the app.",
+    "invalid_client": "Google didn't recognise the client ID and secret - check them in Settings › Phone on your PC.",
+    "unauthorized_client": "Google didn't recognise the client ID and secret - check them in Settings › Phone on your PC.",
+    "redirect_uri_mismatch": "The redirect URI isn't on the Google client - add {uri} under Authorised redirect URIs.",
+}
+
+
+def _token_error(r, cfg: dict) -> str:
+    try:
+        err, desc = r.json().get("error", ""), r.json().get("error_description", "")
+    except ValueError:
+        err, desc = "", ""
+    print(f"Google sign-in refused by Google: {r.status_code} {err} {desc}", flush=True)   # data/app.log; no secrets
+    msg = _TOKEN_ERRORS.get(err, "Google didn't accept the sign-in ({code}{why}) - try again.")
+    return msg.format(uri=redirect_uri(cfg), code=r.status_code, why=f": {err}" if err else "")
+
+
 async def google_finish(params: dict) -> str:
     import httpx
     cfg = settings()
@@ -289,26 +308,35 @@ async def google_finish(params: dict) -> str:
         p = _google.get(params.get("state", ""))
     if not p:
         raise ValueError("This sign-in link has expired - start again from the app.")
-    try:
-        if params.get("error"):
-            raise ValueError("Google sign-in was cancelled." if params["error"] == "access_denied"
-                             else f"Google sign-in failed ({params['error']}).")
-        async with httpx.AsyncClient(timeout=20) as c:
-            r = await c.post(GOOGLE_TOKEN, data={
-                "code": params.get("code", ""), "client_id": cfg["google_client_id"],
-                "client_secret": cfg["google_client_secret"], "redirect_uri": redirect_uri(cfg),
-                "grant_type": "authorization_code", "code_verifier": p["verifier"]})
-        if r.status_code != 200:
-            raise ValueError(f"Google didn't accept the sign-in ({r.status_code}) - check the client ID and secret.")
-        email = check_claims(_id_claims(r.json()["id_token"]), cfg, p["nonce"])
-        p["email"] = email
-        return email
-    except ValueError as e:
-        p["error"] = str(e)
-        raise
-    except Exception as e:
-        p["error"] = "Google sign-in failed - try again."
-        raise ValueError(p["error"]) from e
+    # A callback page can load twice (a phone reopening the tab, back/refresh). Google's code only works once, so the
+    # second load must not swap it again - and must never turn a sign-in that worked into an error.
+    async with p.setdefault("busy", asyncio.Lock()):
+        if p["email"]:
+            return p["email"]
+        if p.get("used"):
+            raise ValueError(p["error"] or "Google sign-in failed - start again from the app.")
+        try:
+            if params.get("error"):
+                raise ValueError("Google sign-in was cancelled." if params["error"] == "access_denied"
+                                 else f"Google sign-in failed ({params['error']}).")
+            p["used"] = True
+            async with httpx.AsyncClient(timeout=20) as c:
+                r = await c.post(GOOGLE_TOKEN, data={
+                    "code": params.get("code", ""), "client_id": cfg["google_client_id"],
+                    "client_secret": cfg["google_client_secret"], "redirect_uri": redirect_uri(cfg),
+                    "grant_type": "authorization_code", "code_verifier": p["verifier"]})
+            if r.status_code != 200:
+                raise ValueError(_token_error(r, cfg))
+            email = check_claims(_id_claims(r.json()["id_token"]), cfg, p["nonce"])
+            p["email"] = email
+            return email
+        except ValueError as e:
+            p["error"] = str(e)
+            raise
+        except Exception as e:
+            print(f"Google sign-in failed: {type(e).__name__}: {e}", flush=True)
+            p["error"] = "Google sign-in failed - try again."
+            raise ValueError(p["error"]) from e
 
 
 def google_poll(poll: str) -> dict:

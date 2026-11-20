@@ -2,6 +2,7 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.3c: Google sign-in fix](#103c-google-sign-in-fix) (20 November 2026)
 - [1.0.3b: Tactics on the phone, and TE in team selection](#103b-tactics-on-the-phone-and-te-in-team-selection) (20 November 2026)
 - [1.0.3: Tactical Effectiveness](#103-tactical-effectiveness) (17 November 2026)
 - [1.0.2d: more room for FM27](#102d-more-room-for-fm27) (15 November 2026)
@@ -9,6 +10,16 @@
 - [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.3c: Google sign-in fix
+Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),
+and run `install.bat` again.
+
+- **Adding a phone with Google sign-in works again.** If the page Google sends you back to loaded twice (the phone
+  reopening the tab, or going back), the sign-in failed with "Google didn't accept the sign-in (400) - check the
+  client ID and secret", even though they were right. A second load now keeps the sign-in.
+- **Clearer errors:** if Google does refuse a sign-in, the message now says why, for example a redirect URI missing
+  from your Google client. The reason is also written to `datapp.log`.
 
 ## 1.0.3b: Tactics on the phone, and TE in team selection
 Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),

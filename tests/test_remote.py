@@ -255,3 +255,41 @@ def test_a_refused_browser_gets_a_page_not_json(env):
     r = phone.get("/")
     assert r.status_code == 403 and r.headers["content-type"].startswith("text/html") and "10.0.0.5" in r.text
     assert phone.get("/api/overview").json() == {"detail": "Not allowed from this address."}
+
+
+def test_google_callback_loaded_twice_keeps_the_sign_in(env, monkeypatch):
+    """Google's code works once: a second load of the callback page must not undo a sign-in that worked."""
+    desk, phone = env
+    desk.put("/api/remote", json={"public_url": "https://fm.example.com", "google_client_id": "cid",
+                                  "google_client_secret": "sec", "allowed_emails": ["me@gmail.com"]})
+    b = phone.post("/auth/google/begin", headers=H).json()
+    q = dict(httpx.URL(b["url"]).params)
+    payload = remote._b64url(json.dumps(claims(nonce=q["nonce"])).encode())
+    calls = []
+
+    def token(request):
+        calls.append(1)
+        if len(calls) > 1:
+            return httpx.Response(400, json={"error": "invalid_grant", "error_description": "Bad Request"})
+        return httpx.Response(200, json={"id_token": f"h.{payload}.sig"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(token)))
+    cb = TestClient(phone.app)
+    for _ in range(2):
+        assert "Signed in as me@gmail.com" in cb.get(f"/auth/google/callback?code=abc&state={q['state']}").text
+    assert len(calls) == 1
+    assert phone.post("/auth/google/poll", json={"poll": b["poll"], "name": "Pixel"}, headers=H).json()["status"] == "ok"
+
+
+def test_google_token_errors_say_what_went_wrong(env, monkeypatch):
+    desk, phone = env
+    desk.put("/api/remote", json={"public_url": "https://fm.example.com", "google_client_id": "cid",
+                                  "google_client_secret": "sec", "allowed_emails": ["me@gmail.com"]})
+    b = phone.post("/auth/google/begin", headers=H).json()
+    q = dict(httpx.URL(b["url"]).params)
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(
+        lambda r: httpx.Response(400, json={"error": "invalid_grant"}))))
+    r = TestClient(phone.app).get(f"/auth/google/callback?code=abc&state={q['state']}")
+    assert "already used or has expired" in r.text and "client ID" not in r.text
