@@ -2,6 +2,7 @@
 
 [Guide index](../README.md#guide) · [Releases](https://github.com/lastrider04/FM27-Analyst/releases)
 
+- [1.0.3d: remote play tidy-ups](#103d-remote-play-tidy-ups) (21 November 2026)
 - [1.0.3c: Google sign-in fix](#103c-google-sign-in-fix) (20 November 2026)
 - [1.0.3b: Tactics on the phone, and TE in team selection](#103b-tactics-on-the-phone-and-te-in-team-selection) (20 November 2026)
 - [1.0.3: Tactical Effectiveness](#103-tactical-effectiveness) (17 November 2026)
@@ -10,6 +11,23 @@
 - [1.0.2b: filters and stars](#102b-filters-and-stars) (15 November 2026)
 - [1.0.2: out of beta](#102-out-of-beta) (14 November 2026)
 - [Earlier: the 1.0.0 betas](#earlier-the-100-betas)
+
+## 1.0.3d: remote play tidy-ups
+Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),
+and run `install.bat` again.
+
+- **Install remote play as an app over Tailscale, even after a restart.** If the PC started before Tailscale had
+  connected, the `https://….ts.net` address never came up, so the phone couldn't install remote play or get
+  notifications. Remote play now keeps trying and switches it on as soon as Tailscale connects.
+- **Tools opens and closes the tool bar.** Tap **Tools** to open it and again (it reads **Hide**) to close it. The
+  tool bar's own **Hide** only shows with a controller. **Hold Tools** to pin both bars on screen; tap **Pinned** to
+  let them fold again.
+- **Your zoom stays put** when you open the analyst, switch apps, turn the phone or the page reloads.
+- **Fit / Fill:** the Fit button now also fills the screen with FM27 (top to bottom on an upright phone). Tap again
+  for the whole of FM27.
+- **Continue** sits on the right of the shortcut row, and at the top on a sideways phone.
+
+See [Remote play](guide/remote-play.md).
 
 ## 1.0.3c: Google sign-in fix
 Update the usual way: quit the app, extract the new version over your existing folder (your `data\` folder is kept),

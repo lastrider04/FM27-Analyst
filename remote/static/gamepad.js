@@ -31,7 +31,7 @@
     ["forward", "Forward"], ["escape", "Esc"], ["key:enter", "Enter"], ["key:up", "Arrow up"],
     ["key:down", "Arrow down"], ["key:left", "Arrow left"], ["key:right", "Arrow right"], ["key:tab", "Tab"],
     ["key:pageup", "Page up"], ["key:pagedown", "Page down"], ["zoomin", "Zoom in"], ["zoomout", "Zoom out"],
-    ["fit", "Fit"], ["app", "App panel"], ["bars", "Show / hide tool bar"], ["mode", "Touch / Mouse"], ["video", "Video"],
+    ["fit", "Fit / Fill"], ["app", "App panel"], ["bars", "Show / hide tool bar"], ["mode", "Touch / Mouse"], ["video", "Video"],
   ];
   const REPEAT = new Set(["key:up", "key:down", "key:left", "key:right", "key:tab", "key:pageup", "key:pagedown"]);
   const REPEAT_DELAY = 380, REPEAT_EVERY = 110;
@@ -95,7 +95,7 @@
       case "back": case "forward":
         send({ t: "nav", dir: a, ...cursorPt() }); navToast(a === "back" ? "Back" : "Forward"); break;
       case "escape": send({ t: "key", k: "escape" }); break;
-      case "fit": fit(); break;
+      case "fit": fitOrFill(); break;
       case "app": openPicks(); break;
       case "bars": setBarOpen(!barOpen); break;
       case "mode": setMouseMode(!mouseMode); break;

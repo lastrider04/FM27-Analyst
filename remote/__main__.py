@@ -107,20 +107,37 @@ def main() -> None:
     if a.lan:
         for ip in addresses():
             print(f"[remote]   open http://{ip}:{a.port} on the phone")
-        # Tailscale HTTPS: needed for phone notifications. Same app and hub; only one server runs start-up.
-        https, why = tls.tailscale_https(app_config.DATA, int(app_config.load_config().get("remote_play", {})
-                                                               .get("https_port", tls.DEFAULT_PORT)))
-        if https:
-            servers.append(uvicorn.Server(uvicorn.Config(app, host=https["ip"], port=https["port"], lifespan="off",
-                                                         ssl_certfile=https["cert"], ssl_keyfile=https["key"], **opts)))
-            app.state.hub.https_url = tls.url(https)
-            print(f"[remote]   open {tls.url(https)} on the phone (Tailscale, HTTPS: notifications work there)")
-        else:
-            print(f"[remote]   no HTTPS over Tailscale: {why}")
     print("[remote] Ctrl+Alt+End pauses control.", flush=True)
+    https_port = int(app_config.load_config().get("remote_play", {}).get("https_port", tls.DEFAULT_PORT))
+
+    async def tailscale_https():
+        """Tailscale HTTPS (the installable phone app and notifications need it). Same app and hub; only the first
+        server runs start-up. Tailscale is often not connected yet when the PC has just started, so keep trying."""
+        last = None
+        while True:
+            https, why = await asyncio.to_thread(tls.tailscale_https, app_config.DATA, https_port)
+            if https:
+                app.state.hub.https_url = tls.url(https)
+                print(f"[remote]   open {tls.url(https)} on the phone (Tailscale, HTTPS: install it as an app there)",
+                      flush=True)
+                await uvicorn.Server(uvicorn.Config(app, host=https["ip"], port=https["port"], lifespan="off",
+                                                    ssl_certfile=https["cert"], ssl_keyfile=https["key"], **opts)).serve()
+                app.state.hub.https_url = None
+                why = "the HTTPS server stopped"
+            if why != last:
+                print(f"[remote]   no HTTPS over Tailscale yet: {why} (trying again every 30 s)", flush=True)
+                last = why
+            if "isn't installed" in why or "certificates are off" in why:
+                return
+            await asyncio.sleep(30)
 
     async def serve_all():
-        await asyncio.gather(*(s.serve() for s in servers))
+        extra = asyncio.create_task(tailscale_https()) if a.lan else None
+        try:
+            await asyncio.gather(*(s.serve() for s in servers))
+        finally:
+            if extra:
+                extra.cancel()
 
     asyncio.run(serve_all())
 

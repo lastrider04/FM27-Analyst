@@ -26,6 +26,11 @@ let base = null, detail = null;           // {img, x, y, w, h, seq}
 let cw = 0, ch = 0, dpr = 1;              // stage size in CSS pixels
 let scale = 1, tx = 0, ty = 0;            // screen = fm * scale + t (CSS pixels)
 let fitted = true;
+// The view you chose, as zoom + centre relative to FM27's window, kept on the phone: opening the analyst, switching
+// apps or the phone reloading the page brings back the same zoom, as do a turn of the phone and video starting.
+const VIEW_KEY = "fm27remote.view";
+let wanted = { z: 1, cx: 0.5, cy: 0.5 };
+try { const v = JSON.parse(localStorage.getItem(VIEW_KEY) || "null"); if (v && v.z >= 1 && v.z <= 5) wanted = v; } catch { /* storage blocked */ }
 const modes = { right: false, drag: false, scroll: false };
 
 // Two ways to point:
@@ -51,6 +56,7 @@ function status(text, warn = false, sticky = false) {
 // ------------------------------------------------------------------ view maths
 const fitScale = () => Math.min(cw / fw, ch / fh);
 const zoom = () => scale / fitScale();
+const fillScale = () => Math.max(cw / fw, ch / fh);   // FM27 fills the screen (top to bottom on an upright phone)
 const toFm = (sx, sy) => ({ x: (sx - tx) / scale, y: (sy - ty) / scale });
 
 function clampView() {
@@ -64,6 +70,40 @@ function clampView() {
 
 function fit() {
   scale = fitScale(); tx = 0; ty = 0; clampView(); viewChanged();
+}
+
+// Fit ↔ Fill: the Fit button (and the controller's Fit) toggles between the whole of FM27 and filling the screen.
+const isFilled = () => fillScale() / fitScale() > 1.02 && Math.abs(scale / fillScale() - 1) < 0.01;
+function fill() {
+  const c = cw ? toFm(cw / 2, ch / 2) : { x: fw / 2, y: fh / 2 };
+  scale = fillScale(); centreOn(c.x, c.y);
+}
+function fitOrFill() { if (fitted && fillScale() / fitScale() > 1.02) fill(); else fit(); }
+function syncFitButton() {
+  const b = $("b-fit");
+  if (!b) return;
+  const toFill = fitted && cw && fillScale() / fitScale() > 1.02;
+  b.querySelector("span").textContent = toFill ? "Fill" : "Fit";
+  b.title = toFill ? "Fill the screen with FM27 (tap again for the whole of it)" : "Fit the whole of FM27 on screen";
+  if (b.dataset.icon !== (toFill ? "fill" : "fit")) { b.dataset.icon = toFill ? "fill" : "fit"; setIcon(b, b.dataset.icon); }
+}
+
+function applyWanted() {                 // back to the view you chose (see VIEW_KEY), for this screen and picture size
+  if (!cw || !ch) return;
+  if (wanted.fill) { scale = fillScale(); return centreOn(wanted.cx * fw, wanted.cy * fh); }   // fill on any screen
+  if (wanted.z < 1.02) return fit();
+  scale = fitScale() * wanted.z;
+  centreOn(wanted.cx * fw, wanted.cy * fh);
+}
+
+let viewSaveTimer = 0;
+function rememberView() {
+  if (!cw || !ch || !fw || !fh) return;
+  const c = toFm(cw / 2, ch / 2);
+  wanted = { z: +zoom().toFixed(3), cx: +(c.x / fw).toFixed(4), cy: +(c.y / fh).toFixed(4), fill: isFilled() };
+  syncFitButton();
+  clearTimeout(viewSaveTimer);
+  viewSaveTimer = setTimeout(() => { try { localStorage.setItem(VIEW_KEY, JSON.stringify(wanted)); } catch { /* blocked */ } }, 300);
 }
 
 function zoomAt(sx, sy, newScale) {
@@ -86,6 +126,7 @@ function visibleRegion() {
 
 let viewTimer = 0, lastViewSent = "";
 function viewChanged() {
+  rememberView();
   draw();
   if (viewTimer) return;
   viewTimer = setTimeout(() => {
@@ -101,11 +142,12 @@ function viewChanged() {
 // ------------------------------------------------------------------ drawing
 function resize() {
   const r = stage.getBoundingClientRect();
-  const keepCentre = cw ? toFm(cw / 2, ch / 2) : null, z = cw ? zoom() : 1;
+  if (!r.width || !r.height) return;     // hidden for a moment (panel, keyboard, app switch): keep the view as it is
+  const want = { ...wanted };
   cw = r.width; ch = r.height; dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
-  scale = fitScale() * z;
-  if (keepCentre && !fitted) centreOn(keepCentre.x, keepCentre.y); else fit();
+  wanted = want;
+  applyWanted();
 }
 
 let drawQueued = false;
@@ -176,7 +218,7 @@ function connect() {
         const img = await createImageBitmap(ev.data);
         const layer = { img, x: meta.x, y: meta.y, w: meta.w, h: meta.h, seq: meta.seq };
         if (videoLive) { img.close?.(); return; }     // a picture sent just before video took over
-        if (meta.fw !== fw || meta.fh !== fh) { fw = meta.fw; fh = meta.fh; fit(); }
+        if (meta.fw !== fw || meta.fh !== fh) { fw = meta.fw; fh = meta.fh; applyWanted(); }
         if (meta.kind === "base") { if (!base?.video) base?.img.close?.(); base = layer; if (fitted) detail = null; }
         else { detail?.img.close?.(); detail = layer; }
         draw();
@@ -268,7 +310,7 @@ function watchFrames(v) {
     if (v !== videoEl) return;
     if (v.videoWidth) {
       if (!videoLive) { videoLive = true; clearTimeout(videoTimer); updateVideoButton(); status("Video on"); }
-      if (v.videoWidth !== fw || v.videoHeight !== fh) { fw = v.videoWidth; fh = v.videoHeight; fit(); }
+      if (v.videoWidth !== fw || v.videoHeight !== fh) { fw = v.videoWidth; fh = v.videoHeight; applyWanted(); }
       base = { img: v, x: 0, y: 0, w: fw, h: fh, seq: 0, video: true };
       detail = null;
       draw();
@@ -325,7 +367,7 @@ function onStatus(s) {
   if (/[#&]pair=/.test(location.hash)) history.replaceState(null, "", location.pathname);   // already paired here
   if ("https" in s) httpsUrl = s.https;
   if ("analyst" in s) setAnalystLink(s.analyst);
-  if (s.w && s.h && (s.w !== fw || s.h !== fh)) { fw = s.w; fh = s.h; fit(); }
+  if (s.w && s.h && (s.w !== fw || s.h !== fh)) { fw = s.w; fh = s.h; applyWanted(); }
   if (s.msg) status(s.msg, true);
   else if (!s.fm) status("FM27 isn't running on the PC", true, true);
   else if (s.paused) status("Control is paused on the PC (Ctrl+Alt+End)", true, true);
@@ -772,12 +814,14 @@ const ICONS = {
   belloff: '<path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l1.5 2H8"/><path d="M10 20a2 2 0 0 0 4 0M3 3l18 18"/>',
   save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/>',
   fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  fill: '<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4M4 3h16M4 21h16"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/>',
   fullscreen: '<path d="M4 9V4h5M4 4l6 6M20 9V4h-5M20 4l-6 6M4 15v5h5M4 20l6-6M20 15v5h-5M20 20l-6-6"/>',
   exitfull: '<path d="M10 4v6H4M4 4l6 6M14 4v6h6M20 4l-6 6M10 20v-6H4M4 20l6-6M14 20v-6h6M20 20l-6-6"/>',
   more: '<path d="M12 6l-6 6 6 6M18 6l-6 6 6 6"/>',
   tools: '<path d="M21 4v16M11 6l-6 6 6 6M17 6l-6 6 6 6"/>',      // « against the edge: the tool bar slides out
   less: '<path d="M3 4v16M7 6l6 6-6 6M13 6l6 6-6 6"/>',
+  pin: '<path d="M9 3h6l-1 6 4 4H6l4-4zM12 13v8"/>',
 };
 function iconSvg(name) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -827,9 +871,12 @@ function renderShortcuts(list) {
     b.onclick = () => send({ t: "key", k: s.key });
     row.append(b);
   }
-  const more = barButton("Tools", "tools", () => setBarOpen(!barOpen), "Show or hide the tool bar");
+  const more = barButton("Tools", "tools", () => (barPinned ? setBarPinned(false) : setBarOpen(!barOpen)),
+    "Tap: show or hide the tool bar. Hold: keep both bars on screen");
   more.id = "b-more";
+  onHold(more, () => setBarPinned(!barPinned));
   row.append(barButton("App", "picks", () => openPicks(), "The analyst app: next match, squad and fixtures"), more);
+  syncMore();
   markBusy();
 }
 
@@ -1354,7 +1401,7 @@ $("b-right").onclick = () => setMode("right", !modes.right);
 $("b-drag").onclick = () => { setMode("drag", !modes.drag); if (modes.drag) status("Drag: one finger moves things with the button held"); };
 $("b-scroll").onclick = () => { setMode("scroll", !modes.scroll); if (modes.scroll) status("Scroll: drag up, down, left or right; drag further to go faster"); };
 $("b-esc").onclick = () => send({ t: "key", k: "escape" });
-$("b-fit").onclick = () => fit();
+$("b-fit").onclick = () => fitOrFill();
 $("b-video").onclick = () => setVideoQuality(nextVideoQuality());
 updateVideoButton();
 
@@ -1412,8 +1459,11 @@ $("b-keys").onclick = () => { kbd.value = ""; kbd.focus(); if (document.activeEl
 // » at its start closes it, and it folds again by itself after BAR_IDLE_MS untouched. With a game controller both
 // rows fold away and a small « tab on the right edge opens just the tool bar; drag the tab up or down if it's in
 // the way. It fades until you need it.
-const BAR_IDLE_MS = 10000, TAB_FADE_MS = 2500, TAB_H = 44, TAB_KEY = "fm27remote.tab";
-let barOpen = false, padHide = false, barTimer = 0, tabTimer = 0, tabY = 0.45, tabDrag = null;
+// Tools toggles the tool bar; holding it (or the « tab) pins both bars on screen until Tools is tapped again. The
+// tool bar's own Hide is only there with a controller, when the shortcut row (and Tools) is folded away.
+const BAR_IDLE_MS = 10000, TAB_FADE_MS = 2500, TAB_H = 44, TAB_KEY = "fm27remote.tab", PIN_KEY = "fm27remote.pinned";
+const PIN_HOLD_MS = 550;
+var barOpen = false, padHide = false, barTimer = 0, tabTimer = 0, tabY = 0.45, tabDrag = null, barPinned = false;  // var: the shortcut row is drawn before this runs
 try { const v = parseFloat(localStorage.getItem(TAB_KEY)); if (v >= 0 && v <= 1) tabY = v; } catch { /* storage blocked */ }
 const lessBtn = barButton("Hide", "less", () => setBarOpen(false), "Hide the tool bar");
 lessBtn.id = "b-less";
@@ -1425,10 +1475,38 @@ barTab.append(iconSvg("more"));
 stage.append(barTab);
 
 function setBarOpen(open) {
+  if (barPinned && !open) return;          // pinned: stays until Tools is tapped
   barOpen = open;
   document.body.classList.toggle("bar-shut", !open);
-  if (open) armBar(); else clearTimeout(barTimer);
-  syncTab();
+  if (open && !barPinned) armBar(); else clearTimeout(barTimer);
+  syncTab(); syncMore();
+}
+function setBarPinned(on) {
+  barPinned = on;
+  document.body.classList.toggle("bars-pinned", on);
+  try { localStorage.setItem(PIN_KEY, on ? "1" : ""); } catch { /* storage blocked */ }
+  if (on) { setBarOpen(true); status("Both bars stay on screen - tap Pinned to fold them"); }
+  else { setBarOpen(false); status("Bars fold away again"); }
+}
+function syncMore() {                    // Tools reads Hide while the tool bar is open, Pinned while pinned
+  const b = $("b-more");
+  if (!b) return;
+  const [label, icon] = barPinned ? ["Pinned", "pin"] : barOpen ? ["Hide", "less"] : ["Tools", "tools"];
+  b.querySelector("span").textContent = label;
+  setIcon(b, icon);
+  b.classList.toggle("on", barPinned);
+}
+// Hold: fires after PIN_HOLD_MS without moving, and swallows the click that follows the release.
+function onHold(el, fn) {
+  let t = 0, x = 0, y = 0, fired = false;
+  el.addEventListener("pointerdown", (e) => {
+    fired = false; x = e.clientX; y = e.clientY;
+    t = setTimeout(() => { fired = true; navigator.vibrate?.(30); fn(); }, PIN_HOLD_MS);
+  });
+  el.addEventListener("pointermove", (e) => { if (Math.hypot(e.clientX - x, e.clientY - y) > 10) clearTimeout(t); });
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) el.addEventListener(ev, () => clearTimeout(t));
+  el.addEventListener("click", (e) => { if (fired) { fired = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  el.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 function armBar() {                      // fold again after a while, unless a Right/Drag/Scroll toggle or Pad is on
   clearTimeout(barTimer);
@@ -1446,7 +1524,7 @@ function setPadHide(on) {                // gamepad.js: a controller connected (
   setBarOpen(false);
 }
 function syncTab() {
-  barTab.hidden = !(padHide && !barOpen);
+  barTab.hidden = !(padHide && !barOpen && !barPinned);
   if (!barTab.hidden) { placeTab(); wakeTab(); }
 }
 function wakeTab() {
@@ -1482,6 +1560,7 @@ barTab.addEventListener("pointerup", () => {
   if (tabMoved) { try { localStorage.setItem(TAB_KEY, tabY.toFixed(3)); } catch { /* storage blocked */ } }
 });
 barTab.addEventListener("pointercancel", () => { tabDrag = null; tabMoved = true; });
+onHold(barTab, () => setBarPinned(true));
 barTab.addEventListener("click", (e) => {
   e.stopPropagation();
   if (tabMoved) { tabMoved = false; return; }          // that was a drag: just move the tab
@@ -1493,6 +1572,8 @@ $("controls").addEventListener("click", (e) => {
 }, true);
 new ResizeObserver(() => { if (!barTab.hidden) placeTab(); }).observe(stage);
 setBarOpen(false);
+try { if (localStorage.getItem(PIN_KEY)) { barPinned = true; document.body.classList.add("bars-pinned"); setBarOpen(true); } }
+catch { /* storage blocked */ }
 
 // While the phone keyboard is up the bars are hidden: there's no room for them, and on Android the shrunken page
 // would otherwise flip to the landscape layout. "Hide keyboard" (or the phone's own back/close) brings them back.

@@ -62,7 +62,9 @@ code. A phone paired this way can use every network remote play is on.
 ## On the phone
 **The picture.** Tap to click. Pinch to zoom, drag with two fingers to pan, and double-tap to zoom in or back to the
 whole screen. Press and hold for a magnifier, slide to aim, and lift to click there. The minimap in the corner shows
-where you are; tap it or drag on it to jump.
+where you are; tap it or drag on it to jump. Your zoom stays put when you open the analyst, switch apps or turn the
+phone. **Fill** makes FM27 fill the screen (top to bottom on an upright phone; pan sideways with two fingers or the
+minimap), and the button then reads **Fit**, which (like a double-tap) goes back to the whole of FM27.
 
 **Back and Forward.** Draw a full circle with one finger: anticlockwise goes **Back**, clockwise goes **Forward**,
 like the side buttons on a mouse. A label flashes to show which one was sent. It works in Mouse mode too, but not
@@ -74,14 +76,16 @@ To change them, open the analyst's **Remote tab › Shortcut row**: rename, reor
 **The tool bar** (swipe it for more): **Touch/Mouse** mode, **Keys** (the phone keyboard; the bars hide while it's up),
 **Right** (the next tap is a right-click), **Drag** (for moving players on the tactics pitch), **Scroll** (one finger
 turns the mouse wheel: drag up or down, or left and right for wide tables; it starts slow, gets faster the further you
-drag, and keeps going while you hold at the edge of the screen), **Esc**, **Video**, **Fit**, **Full** (full screen on Android), **Analyst** and **Alerts**.
-It's folded away to give FM27 more room: tap **Tools** (« at the end of the shortcut row) to open it and **Hide** (»)
-to close it. It folds again by itself after 10 seconds untouched, unless Right, Drag or Scroll is on.
+drag, and keeps going while you hold at the edge of the screen), **Esc**, **Video**, **Fit / Fill**, **Full** (full screen on Android), **Analyst** and **Alerts**.
+It's folded away to give FM27 more room: tap **Tools** (« at the end of the shortcut row) to open it, and tap it again
+(it now reads **Hide**) to close it. It folds again by itself after 10 seconds untouched, unless Right, Drag or Scroll
+is on. **Hold Tools** to pin both bars on screen: it reads **Pinned**, nothing folds away (even with a controller), and
+the phone remembers it. Tap **Pinned** to fold them again.
 
 **Game controller.** Connect a controller to the phone or tablet (Bluetooth or USB: Xbox, PlayStation, Switch Pro
 and most others) and press any of its buttons. Both bars fold away so FM27 fills the screen, and a small **«** tab sits on the right
-edge. It fades after a few seconds; tap it to bring back just the tool bar (with **Pad**, below), or drag it up or
-down if it's in the way. The bars come back when the controller disconnects.
+edge. It fades after a few seconds; tap it to bring back just the tool bar (with **Pad**, below, and a **Hide** button
+to fold it, since the shortcut row is away), hold it to pin both bars, or drag it up or down if it's in the way. The bars come back when the controller disconnects.
 - **Left stick:** moves the cursor (Mouse mode turns on by itself). A light push is slow and precise; a full push
   crosses the screen in about a second. When you're zoomed in, the picture follows the cursor.
 - **Right stick:** scrolls at the cursor, up and down or left and right. In the App panel it scrolls the panel.

@@ -63,6 +63,9 @@ body { display: flex; flex-direction: column; height: 100dvh; }
 #shortcuts button.primary { flex: 1.8; background: var(--accent); font-weight: 600; }
 #shortcuts button.primary span { color: #fff; }
 #shortcuts button.primary:active { filter: brightness(1.2); }
+/* Continue sits at the thumb's end: the right of the row (stuck there if the row scrolls), the top of the column in
+   landscape on a phone */
+#shortcuts button.primary { order: 99; position: sticky; right: 0; z-index: 1; }
 #pair {
   position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; justify-content: center;
   padding: 24px max(20px, env(safe-area-inset-right)) 24px max(20px, env(safe-area-inset-left));
@@ -135,7 +138,7 @@ body { display: flex; flex-direction: column; height: 100dvh; }
   #controls { gap: 3px; padding-left: 4px; }
   #controls button { flex: 1 0 34px; min-height: 0; border-radius: 8px; gap: 1px; }
   #shortcuts button, #bar button { min-width: 0; }
-  #shortcuts button.primary { flex: 1.6 0 44px; }
+  #shortcuts button.primary { flex: 1.6 0 44px; order: -1; right: auto; top: 0; }
   #controls .icon { width: 18px; height: 18px; }
   #controls button span { font-size: 9px; }
 }
@@ -322,7 +325,10 @@ body.typing #controls, body.pairing #controls { display: none; }
 body.bar-shut #bar { display: none; }
 body.pad-hide #shortcuts { display: none; }
 body.pad-hide.bar-shut #controls { display: none; }
-#b-more .icon, #b-less .icon { transform: rotate(90deg); }      /* rows: the tool bar opens below the shortcuts */
+body:not(.pad-hide) #b-less, body.bars-pinned #b-less { display: none; }   /* Tools does it; Hide is for controllers */
+body.bars-pinned.pad-hide #shortcuts { display: flex; }                    /* pinned: both bars, controller or not */
+#b-more .icon, #b-less .icon { transform: rotate(90deg); }
+#b-more.on .icon { transform: none; }      /* rows: the tool bar opens below the shortcuts */
 @media (orientation: landscape) and (max-height: 500px) {
   #b-more .icon, #b-less .icon { transform: none; }              /* columns: it opens to the right */
 }
